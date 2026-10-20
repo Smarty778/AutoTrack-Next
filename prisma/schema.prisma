@@ -1,0 +1,274 @@
+// AutoTrack Manager - Production Prisma Schema
+// Designed to match the 26-column vehicle GPS tracker spreadsheet & Sales CRM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum RecordStatus {
+  CONTINUED    // Continued annual service subscription
+  PENDING      // Pending follow-up / renewal
+  REMOVAL      // Customer requested device removal
+  REMOVED      // Device removed from vehicle & returned
+  IN_PROGRESS  // Installation / Upgrade / Work in progress
+}
+
+enum TrackerStatus {
+  ACTIVE          // GPS pinging and active
+  NR              // Not Reporting / Offline
+  TESTING         // Testing / Diagnostics
+  STANDBY         // Standby / Suspended
+  REMOVED         // De-installed
+  DECOMMISSIONED  // Archived
+}
+
+enum PermissionPreset {
+  STRICT
+  STANDARD
+  FULL
+  READONLY
+}
+
+// -----------------------------------------------------------------------------
+// USER & ACCESS CONTROL
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(USER)
+  phone        String?
+  city         String?
+  avatarColor  String    @default("bg-slate-900")
+  active       Boolean   @default(true)
+
+  // Relationships
+  assignedRecords    TrackerRecord[]   @relation("AssignedSalesPerson")
+  createdRecords     TrackerRecord[]   @relation("CreatedByUser")
+  statusChangesMade  StatusChangeLog[] @relation("StatusChangesMade")
+  auditLogs          AuditLog[]        @relation("UserAuditLogs")
+  customPermissions  AgentPermissions?
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([username])
+  @@index([role, active])
+  @@map("users")
+}
+
+model AgentPermissions {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Service & Operational Permissions
+  canEditStatus         Boolean @default(true)
+  canEditTrackerStatus  Boolean @default(true)
+  canEditRemarks        Boolean @default(true)
+  canEditDueDate        Boolean @default(true)
+  canEditContactInfo    Boolean @default(true)
+  canEditInsurance      Boolean @default(false)
+
+  // Core Vehicle & Hardware Master Data
+  canEditVehicleSpecs   Boolean @default(false)
+  canEditEngineChassis  Boolean @default(false)
+  canEditHardwareUnit   Boolean @default(false)
+  canEditTechnicianCity Boolean @default(false)
+  canEditOrderNoDate    Boolean @default(false)
+
+  // Administrative Privileges
+  canCreateNewRecords    Boolean @default(true)
+  canDeleteRecords       Boolean @default(false)
+  canReassignSalesPerson Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("agent_permissions")
+}
+
+// -----------------------------------------------------------------------------
+// VEHICLE TRACKER MASTER SPREADSHEET (Exact 26 Fields)
+// -----------------------------------------------------------------------------
+
+model TrackerRecord {
+  id String @id @default(cuid())
+
+  // 1. Reg No.
+  regNo              String        @unique
+  // 2. Customer Name
+  customerName       String
+  // 3. Make
+  make               String
+  // 4. Model
+  model              String
+  // 5. Year
+  year               String
+  // 6. Color
+  color              String
+  // 7. Contact #1
+  contact1           String
+  // 8. Contact Person / New Owner
+  contactPerson      String
+  // 9. Engine
+  engine             String
+  // 10. Chassis
+  chassis            String
+  // 11. Insurance
+  insurance          String
+  // 12. Date
+  date               String
+  // 13. Sales Person (Name)
+  salesPerson        String
+  assignedToUserId   String?
+  assignedToUser     User?         @relation("AssignedSalesPerson", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  // 14. Technician Name
+  technicianName     String
+  // 15. Order No.
+  orderNo            String
+  // 16. Inst. City
+  instCity           String
+  // 17. Showroom
+  showroom           String
+  // 18. CNIC No
+  cnicNo             String
+  // 19. Ins Status
+  insStatus          String
+  // 20. Date of installation
+  dateOfInstallation String
+  // 21. Due date
+  dueDate            String
+
+  // 22. Status (Continued / Pending / Removal / Removed / In Progress)
+  status             RecordStatus  @default(PENDING)
+  statusChangedAt    DateTime?     @default(now())
+  statusChangedBy    String?       // Username / display name
+  statusChangedByUserId String?
+
+  // 23. Coordinated by
+  coordinatedBy      String
+  // 24. Remarks
+  remarks            String        @db.Text
+  // 25. UNIT (GPS Device Hardware Model)
+  unit               String
+  // 26. Tracker Status (Active / NR / Testing / Standby / Removed / Decommissioned)
+  trackerStatus      TrackerStatus @default(ACTIVE)
+
+  // Meta & Audit
+  createdById        String?
+  createdByUser      User?         @relation("CreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relationships
+  statusHistory      StatusChangeLog[]
+  auditLogs          AuditLog[]
+  jobCards           JobCard[]
+
+  @@index([regNo])
+  @@index([customerName])
+  @@index([status])
+  @@index([trackerStatus])
+  @@index([assignedToUserId])
+  @@index([dueDate])
+  @@index([instCity])
+  @@map("tracker_records")
+}
+
+// -----------------------------------------------------------------------------
+// STATUS CHANGE HISTORY AUDIT
+// -----------------------------------------------------------------------------
+
+model StatusChangeLog {
+  id              String        @id @default(cuid())
+  recordId        String
+  record          TrackerRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  previousStatus  RecordStatus?
+  newStatus       RecordStatus
+
+  changedByUserId String?
+  changedByUser   User?         @relation("StatusChangesMade", fields: [changedByUserId], references: [id], onDelete: SetNull)
+  changedByName   String
+  changedByUsername String
+
+  remarks         String?       @db.Text
+  timestamp       DateTime      @default(now())
+
+  @@index([recordId])
+  @@index([changedByUserId])
+  @@index([timestamp])
+  @@map("status_change_logs")
+}
+
+// -----------------------------------------------------------------------------
+// GENERAL AUDIT LOG
+// -----------------------------------------------------------------------------
+
+model AuditLog {
+  id          String         @id @default(cuid())
+  timestamp   DateTime       @default(now())
+  action      String
+  details     String         @db.Text
+
+  actorId     String?
+  actor       User?          @relation("UserAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName   String
+
+  recordId    String?
+  record      TrackerRecord? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+  recordRegNo String?
+
+  @@index([timestamp])
+  @@index([actorId])
+  @@index([recordRegNo])
+  @@map("audit_logs")
+}
+
+// -----------------------------------------------------------------------------
+// TECHNICIAN JOB CARDS
+// -----------------------------------------------------------------------------
+
+model JobCard {
+  id             String        @id @default(cuid())
+  jobCardNo      String        @unique
+  recordId       String
+  record         TrackerRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  jobType        String        @default("Installation") // Installation, Removal, Maintenance, Inspection
+  technicianName String
+  installationCity String
+  scheduledDate  DateTime?
+  completedDate  DateTime?
+  status         String        @default("Pending") // Pending, In Progress, Completed, Cancelled
+  odometerReading String?
+  imeiNumber     String?
+  simNumber      String?
+  notes          String?       @db.Text
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([recordId])
+  @@index([technicianName])
+  @@map("job_cards")
+}
