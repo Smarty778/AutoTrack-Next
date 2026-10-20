@@ -107,67 +107,67 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       
       {/* Top Banner */}
-      <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-2xs flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-5 h-5 text-slate-700" />
-            <span>Sales Team &amp; Fleet Allocation Management</span>
+          <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+            <Users className="w-5 h-5 text-slate-700 shrink-0" />
+            <span>Sales Team &amp; Fleet Allocation</span>
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Manage sales accounts, passwords, and assigned vehicle portfolios. Each sales person only sees records assigned to their User ID.
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+            Manage sales accounts, passwords, and assigned vehicle portfolios.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <button
             type="button"
             onClick={() => setShowFactoryResetModal(true)}
-            className="px-3 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer border border-red-200"
+            className="px-3 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer border border-red-200 min-h-[38px]"
           >
             <RotateCw className="w-3.5 h-3.5 text-red-500" />
-            <span>Factory Reset Portal</span>
+            <span>Factory Reset</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowAddUserModal(true)}
-            className="px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className="px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer min-h-[38px]"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            <span>Add New Sales Representative</span>
+            <span>Add Sales Rep</span>
           </button>
         </div>
       </div>
 
       {/* Agent Access & Edit Control Policy Banner */}
-      <div className="bg-gradient-to-r from-amber-50/70 via-slate-50 to-white rounded-lg border border-amber-200/90 p-5 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-300 text-amber-700 flex items-center justify-center shrink-0">
-            <Shield className="w-5 h-5 text-amber-600" />
+      <div className="bg-gradient-to-r from-amber-50/70 via-slate-50 to-white rounded-xl border border-amber-200/90 p-3.5 sm:p-5 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3 sm:gap-3.5">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-amber-500/10 border border-amber-300 text-amber-700 flex items-center justify-center shrink-0">
+            <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-slate-900">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
                 Agent Edit Access Rights &amp; Field Permissions Control
               </h3>
               <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded tracking-wide">
                 Admin Controlled
               </span>
             </div>
-            <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
+            <p className="text-[11px] sm:text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
               Admin controls exactly how much edit access agents have on their assigned vehicle records. Lock sensitive vehicle specifications (Reg No, Engine, Chassis) or restrict agents to follow-up remarks &amp; due date only.
             </p>
             
             {/* Presets and Status Summary */}
-            <div className="flex flex-wrap items-center gap-2 mt-3 text-xs">
-              <span className="text-slate-500 font-medium text-[11px]">Quick 1-Click Policies:</span>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-3 text-xs">
+              <span className="text-slate-500 font-medium text-[10px] sm:text-[11px] w-full sm:w-auto">Quick Policies:</span>
               <button
                 type="button"
                 onClick={() => resetAgentPermissionsToPreset('readonly')}
-                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-medium text-[11px] shadow-2xs cursor-pointer"
+                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-medium text-[11px] shadow-2xs cursor-pointer min-h-[30px]"
                 title="Agents can only view, no edits"
               >
                 Read-Only
@@ -175,7 +175,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
               <button
                 type="button"
                 onClick={() => resetAgentPermissionsToPreset('strict')}
-                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-medium text-[11px] shadow-2xs cursor-pointer"
+                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-medium text-[11px] shadow-2xs cursor-pointer min-h-[30px]"
                 title="Only remarks & due date"
               >
                 Strict (Notes Only)
@@ -183,7 +183,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
               <button
                 type="button"
                 onClick={() => resetAgentPermissionsToPreset('standard')}
-                className="px-2.5 py-1 bg-blue-50 border border-blue-300 hover:bg-blue-100 text-blue-800 rounded font-semibold text-[11px] shadow-2xs cursor-pointer"
+                className="px-2.5 py-1 bg-blue-50 border border-blue-300 hover:bg-blue-100 text-blue-800 rounded font-semibold text-[11px] shadow-2xs cursor-pointer min-h-[30px]"
                 title="Status + Tracker Health + Remarks + Contacts"
               >
                 Standard (Recommended)
@@ -191,7 +191,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
               <button
                 type="button"
                 onClick={() => resetAgentPermissionsToPreset('full')}
-                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-medium text-[11px] shadow-2xs cursor-pointer"
+                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-medium text-[11px] shadow-2xs cursor-pointer min-h-[30px]"
                 title="All vehicle fields editable"
               >
                 Full Vehicle Edit
@@ -203,7 +203,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
         <button
           type="button"
           onClick={() => onOpenPermissionsModal?.()}
-          className="px-4 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-2 shrink-0 cursor-pointer"
+          className="w-full md:w-auto px-4 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors shadow-xs flex items-center justify-center gap-2 shrink-0 cursor-pointer min-h-[40px]"
         >
           <Shield className="w-4 h-4 text-amber-400" />
           <span>Configure Edit Permissions</span>

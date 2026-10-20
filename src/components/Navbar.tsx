@@ -40,20 +40,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
-      {/* Universal Top Bar Contract: 3 zones separated by gap-8 */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4 sm:gap-8">
+      {/* Universal Top Bar Contract: 3 zones separated by responsive gaps */}
+      <div className="w-full px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-8">
         
         {/* ZONE 1: Brand Wordmark (Single text element wordmark) */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-xs">
-            <span className="font-bold text-base tracking-wider">AT</span>
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-xs">
+            <span className="font-bold text-sm sm:text-base tracking-wider">AT</span>
           </div>
           <div className="flex flex-col">
-            <div className="text-base font-bold text-slate-900 tracking-tight leading-none whitespace-nowrap">
-              AutoTrack Manager
+            <div className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-none whitespace-nowrap">
+              AutoTrack
             </div>
-            <span className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5 whitespace-nowrap">
-              Vehicle GPS Tracking &middot; Sales CRM
+            <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium leading-tight mt-0.5 whitespace-nowrap">
+              GPS Fleet CRM
             </span>
           </div>
         </div>
@@ -100,27 +100,27 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* ZONE 3: Primary Action & Interactive Role Switcher */}
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Quick User Role Switcher Dropdown (Allows instant switching between Admin and Sales Persons to verify assignment) */}
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Quick User Role Switcher Dropdown */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-xs text-left"
-              title="Click to switch between Master Admin or Sales Person"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-xs text-left min-h-[38px] active:bg-slate-200"
+              title="Click to view profile or sign out"
             >
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-bold ${currentUser.avatarColor}`}>
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-bold shrink-0 ${currentUser.avatarColor}`}>
                 {currentUser.name.charAt(0)}
               </div>
               <div className="hidden sm:block">
-                <div className="font-semibold text-slate-900 leading-none truncate max-w-[130px]">
+                <div className="font-semibold text-slate-900 leading-none truncate max-w-[120px]">
                   {currentUser.name}
                 </div>
                 <div className="text-[10px] text-slate-500 uppercase font-semibold mt-0.5">
                   {currentUser.role === 'admin' ? 'Master Admin' : 'Sales Person'}
                 </div>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-500 ml-1" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             </button>
 
             {userDropdownOpen && (
@@ -129,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="fixed inset-0 z-40" 
                   onClick={() => setUserDropdownOpen(false)} 
                 />
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white rounded-lg shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
                   {/* Current Active Account Card */}
                   <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70">
                     <div className="flex items-center gap-2.5">
@@ -157,6 +157,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="px-3.5 py-2 text-[11px] text-slate-500 border-b border-slate-100 flex items-center gap-1.5 bg-amber-50/40 text-amber-900">
                     <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                     <span>Direct switching disabled. Log out to sign in as another user.</span>
+                  </div>
+
+                  {/* Mobile Quick Data Actions (accessible on small screens) */}
+                  <div className="lg:hidden border-b border-slate-100 py-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        onOpenCSVModal('export');
+                      }}
+                      className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <span>Export Records CSV</span>
+                    </button>
+                    {currentUser.role === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          onOpenCSVModal('import');
+                        }}
+                        className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <span>Import Spreadsheet CSV</span>
+                      </button>
+                    )}
                   </div>
 
                   {currentUser.role === 'admin' && onOpenPermissionsModal && (
@@ -192,7 +220,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         logout();
                         setUserDropdownOpen(false);
                       }}
-                      className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Sign Out</span>
@@ -208,7 +236,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               type="button"
               onClick={onOpenPermissionsModal}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors cursor-pointer shadow-2xs min-h-[38px]"
               title="Admin Access Control: Configure what fields agents are permitted to edit"
             >
               <Shield className="w-3.5 h-3.5 text-amber-600" />
@@ -220,17 +248,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={logout}
-            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
             title="Sign Out / Lock Portal"
           >
             <LogOut className="w-4 h-4" />
           </button>
 
-          {/* Quick Import / Export actions */}
+          {/* Quick Import / Export actions (Desktop) */}
           <button
             type="button"
             onClick={() => onOpenCSVModal('export')}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap"
+            className="hidden lg:flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap min-h-[38px] cursor-pointer"
             title="Export Records to Excel/CSV"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
@@ -241,7 +269,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               type="button"
               onClick={() => onOpenCSVModal('import')}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap min-h-[38px] cursor-pointer"
               title="Upload CSV Sheet"
             >
               <Upload className="w-3.5 h-3.5 text-slate-500" />
@@ -254,55 +282,63 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               type="button"
               disabled
-              className="px-3.5 py-2 text-xs font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded-lg flex items-center gap-1.5 cursor-not-allowed"
+              className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded-lg flex items-center gap-1.5 cursor-not-allowed min-h-[38px]"
               title="Creating new records is locked by Admin policy"
             >
               <Lock className="w-3 h-3 text-slate-400" />
-              <span>New Entry (Locked)</span>
+              <span className="hidden sm:inline">New Entry (Locked)</span>
+              <span className="sm:hidden">Locked</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={onOpenNewRecordModal}
-              className="px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap shrink-0 cursor-pointer"
+              className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap shrink-0 cursor-pointer min-h-[38px]"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>New Entry</span>
+              <span className="hidden sm:inline">New Entry</span>
+              <span className="sm:hidden">New</span>
             </button>
           )}
         </div>
 
       </div>
 
-      {/* Mobile nav bar row */}
-      <div className="md:hidden flex items-center justify-around border-t border-slate-200 px-2 py-2 bg-slate-50 text-xs">
+      {/* Mobile touch-optimized sub-navigation bar row */}
+      <div className="md:hidden flex items-center justify-around border-t border-slate-200 px-2 py-1.5 bg-slate-50 text-xs">
         <button
           onClick={() => onTabChange('spreadsheet')}
-          className={`flex items-center gap-1 py-1 px-2.5 rounded ${
-            currentTab === 'spreadsheet' ? 'bg-slate-900 text-white font-medium' : 'text-slate-600'
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors min-h-[40px] text-xs ${
+            currentTab === 'spreadsheet'
+              ? 'bg-slate-900 text-white font-semibold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <FileSpreadsheet className="w-3.5 h-3.5" />
+          <FileSpreadsheet className="w-4 h-4" />
           <span>Master Sheet</span>
         </button>
         {currentUser.role === 'admin' && (
           <button
             onClick={() => onTabChange('team')}
-            className={`flex items-center gap-1 py-1 px-2.5 rounded ${
-              currentTab === 'team' ? 'bg-slate-900 text-white font-medium' : 'text-slate-600'
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors min-h-[40px] text-xs ${
+              currentTab === 'team'
+                ? 'bg-slate-900 text-white font-semibold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <Users className="w-3.5 h-3.5" />
+            <Users className="w-4 h-4" />
             <span>Sales Team</span>
           </button>
         )}
         <button
           onClick={() => onTabChange('logs')}
-          className={`flex items-center gap-1 py-1 px-2.5 rounded ${
-            currentTab === 'logs' ? 'bg-slate-900 text-white font-medium' : 'text-slate-600'
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors min-h-[40px] text-xs ${
+            currentTab === 'logs'
+              ? 'bg-slate-900 text-white font-semibold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <History className="w-3.5 h-3.5" />
+          <History className="w-4 h-4" />
           <span>Audit</span>
         </button>
       </div>

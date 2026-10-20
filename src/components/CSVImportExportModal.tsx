@@ -277,31 +277,31 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[96dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-slate-200 p-0.5 rounded-lg text-xs font-semibold">
+        <div className="px-3.5 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-200/90 p-0.5 rounded-lg text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => setMode('export')}
-                className={`px-3 py-1 rounded-md transition-colors ${
+                className={`px-3 py-1 rounded-md transition-colors min-h-[32px] ${
                   mode === 'export' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Export CSV / Excel
+                Export CSV
               </button>
               {currentUser.role === 'admin' && (
                 <button
                   type="button"
                   onClick={() => setMode('import')}
-                  className={`px-3 py-1 rounded-md transition-colors ${
+                  className={`px-3 py-1 rounded-md transition-colors min-h-[32px] ${
                     mode === 'import' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Import Spreadsheet
+                  Import CSV
                 </button>
               )}
             </div>
@@ -309,14 +309,14 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 text-xs">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 text-xs">
           
           {/* EXPORT MODE */}
           {mode === 'export' && (
@@ -363,11 +363,11 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+              <div className="pt-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <button
                   type="button"
                   onClick={handleDownloadTemplate}
-                  className="text-blue-600 hover:underline flex items-center gap-1"
+                  className="text-blue-600 hover:underline flex items-center justify-center sm:justify-start gap-1 py-1"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>Download Blank CSV Template</span>
@@ -376,7 +376,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                 <button
                   type="button"
                   onClick={handleExport}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 font-semibold flex items-center gap-1.5 shadow-xs"
+                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 font-semibold flex items-center justify-center gap-1.5 shadow-xs min-h-[40px] cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
                   <span>Download CSV File</span>
@@ -441,29 +441,31 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
               {/* Preview */}
               {parsedPreview.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <span className="font-semibold text-slate-800 flex items-center gap-1.5 text-emerald-700">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Parsed {parsedPreview.length} vehicle records successfully
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>Parsed {parsedPreview.length} vehicle records successfully</span>
                     </span>
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-1 cursor-pointer">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
                           type="radio"
                           name="importMode"
                           checked={importMode === 'append'}
                           onChange={() => setImportMode('append')}
+                          className="text-slate-900 focus:ring-slate-900"
                         />
                         <span>Append to existing</span>
                       </label>
-                      <label className="flex items-center gap-1 cursor-pointer">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
                           type="radio"
                           name="importMode"
                           checked={importMode === 'replace'}
                           onChange={() => setImportMode('replace')}
+                          className="text-slate-900 focus:ring-slate-900"
                         />
-                        <span className="text-red-600">Replace entire fleet</span>
+                        <span className="text-red-600 font-medium">Replace entire fleet</span>
                       </label>
                     </div>
                   </div>
@@ -473,23 +475,23 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                     <table className="w-full text-left text-[11px]">
                       <thead className="bg-slate-100 font-semibold text-slate-700 sticky top-0">
                         <tr>
-                          <th className="p-1.5 border-r border-slate-200">Reg No</th>
-                          <th className="p-1.5 border-r border-slate-200">Customer</th>
-                          <th className="p-1.5 border-r border-slate-200">Make/Model</th>
-                          <th className="p-1.5 border-r border-slate-200">Sales Person</th>
-                          <th className="p-1.5 border-r border-slate-200">Status</th>
-                          <th className="p-1.5">Due Date</th>
+                          <th className="p-1.5 border-r border-slate-200 whitespace-nowrap">Reg No</th>
+                          <th className="p-1.5 border-r border-slate-200 whitespace-nowrap">Customer</th>
+                          <th className="p-1.5 border-r border-slate-200 whitespace-nowrap">Make/Model</th>
+                          <th className="p-1.5 border-r border-slate-200 whitespace-nowrap">Sales Person</th>
+                          <th className="p-1.5 border-r border-slate-200 whitespace-nowrap">Status</th>
+                          <th className="p-1.5 whitespace-nowrap">Due Date</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {parsedPreview.slice(0, 5).map((p, idx) => (
                           <tr key={idx} className="hover:bg-slate-50">
-                            <td className="p-1.5 font-mono font-medium">{p.regNo}</td>
-                            <td className="p-1.5">{p.customerName}</td>
-                            <td className="p-1.5">{p.make} {p.model}</td>
-                            <td className="p-1.5 font-medium">{p.salesPerson}</td>
-                            <td className="p-1.5">{p.status}</td>
-                            <td className="p-1.5 font-mono">{p.dueDate || '-'}</td>
+                            <td className="p-1.5 font-mono font-medium whitespace-nowrap">{p.regNo}</td>
+                            <td className="p-1.5 whitespace-nowrap">{p.customerName}</td>
+                            <td className="p-1.5 whitespace-nowrap">{p.make} {p.model}</td>
+                            <td className="p-1.5 font-medium whitespace-nowrap">{p.salesPerson}</td>
+                            <td className="p-1.5 whitespace-nowrap">{p.status}</td>
+                            <td className="p-1.5 font-mono whitespace-nowrap">{p.dueDate || '-'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -504,11 +506,11 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
               )}
 
               {/* Actions */}
-              <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+              <div className="pt-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <button
                   type="button"
                   onClick={handleDownloadTemplate}
-                  className="text-blue-600 hover:underline flex items-center gap-1"
+                  className="text-blue-600 hover:underline flex items-center justify-center sm:justify-start gap-1 py-1"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>Download Sample Template</span>
@@ -518,7 +520,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                   type="button"
                   disabled={parsedPreview.length === 0}
                   onClick={handleImportSubmit}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 font-semibold flex items-center gap-1.5 shadow-xs"
+                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 font-semibold flex items-center justify-center gap-1.5 shadow-xs min-h-[40px] cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Import {parsedPreview.length} Records</span>

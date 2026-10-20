@@ -1,9 +1,15 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Providers } from './providers';
 import './globals.css';
 
 const description =
   'Vehicle GPS tracker installation and sales CRM with role-based access control, master admin spreadsheet management, dynamic batch assignment, and sales rep workspaces.';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   title: 'AutoTrack EMI Management',

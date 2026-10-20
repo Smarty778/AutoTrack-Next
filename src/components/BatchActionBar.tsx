@@ -75,39 +75,39 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
   };
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl bg-slate-900 text-white rounded-xl shadow-2xl border border-slate-700/80 p-3 sm:px-4 sm:py-3 flex flex-wrap items-center justify-between gap-3 animate-in slide-in-from-bottom-5 duration-200">
+    <div className="fixed bottom-2.5 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-1.25rem)] max-w-4xl bg-slate-900 text-white rounded-xl shadow-2xl border border-slate-700/80 p-2.5 sm:px-4 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3 animate-in slide-in-from-bottom-5 duration-200">
       
       {/* Selection count badge */}
-      <div className="flex items-center gap-2.5">
-        <span className="w-6 h-6 rounded-full bg-blue-500 text-white font-mono-numbers text-xs font-bold flex items-center justify-center">
+      <div className="flex items-center gap-2">
+        <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-500 text-white font-mono-numbers text-[11px] sm:text-xs font-bold flex items-center justify-center shrink-0">
           {selectedRecordIds.length}
         </span>
         <div className="flex flex-col">
-          <span className="text-xs font-semibold text-white">
-            {selectedRecordIds.length} Record{selectedRecordIds.length > 1 ? 's' : ''} Selected
+          <span className="text-xs font-semibold text-white leading-none">
+            {selectedRecordIds.length} Selected
           </span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] text-slate-400 hidden xs:inline leading-tight mt-0.5">
             {currentUser.role === 'admin' ? 'Assign or batch update' : 'Batch actions'}
           </span>
         </div>
       </div>
 
       {/* Action Controls */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
         
         {/* ASSIGNMENT TOOL (Admin only) */}
         {currentUser.role === 'admin' && (
-          <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700 rounded-lg p-1">
-            <UserCheck className="w-3.5 h-3.5 text-blue-400 ml-1.5" />
+          <div className="flex items-center gap-1 bg-slate-800/90 border border-slate-700 rounded-lg p-1 max-w-[200px] sm:max-w-none">
+            <UserCheck className="w-3.5 h-3.5 text-blue-400 ml-1 shrink-0" />
             <select
               value={selectedUserToAssign}
               onChange={(e) => setSelectedUserToAssign(e.target.value)}
-              className="text-xs bg-transparent text-white border-none focus:outline-none pr-2 py-0.5"
+              className="text-xs bg-transparent text-white border-none focus:outline-none pr-1 py-0.5 truncate max-w-[120px] sm:max-w-xs"
             >
-              <option value="" className="text-slate-800 bg-white">Assign to Staff / Coordinator...</option>
+              <option value="" className="text-slate-800 bg-white">Assign staff...</option>
               {staffUsers.map(u => (
                 <option key={u.id} value={u.id} className="text-slate-800 bg-white">
-                  Assign to {u.name} ({u.role.toUpperCase()})
+                  {u.name} ({u.role.toUpperCase()})
                 </option>
               ))}
             </select>
@@ -115,7 +115,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
               type="button"
               disabled={!selectedUserToAssign}
               onClick={handleApplyAssignment}
-              className="px-2.5 py-1 text-xs font-semibold bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 text-white rounded transition-colors whitespace-nowrap"
+              className="px-2 py-1 text-[11px] sm:text-xs font-semibold bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 text-white rounded transition-colors whitespace-nowrap cursor-pointer"
             >
               Assign
             </button>
@@ -131,14 +131,14 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
                 const val = e.target.value as TrackerRecord['status'];
                 if (val) handleApplyStatus(val);
               }}
-              className="text-xs bg-transparent text-white border-none focus:outline-none px-2 py-0.5"
+              className="text-xs bg-transparent text-white border-none focus:outline-none px-1.5 py-0.5"
             >
-              <option value="" className="text-slate-800 bg-white">Batch Status...</option>
-              <option value="Continued" className="text-slate-800 bg-white">Set: Continued</option>
-              <option value="Pending" className="text-slate-800 bg-white">Set: Pending</option>
-              <option value="Removal" className="text-slate-800 bg-white">Set: Removal</option>
-              <option value="Removed" className="text-slate-800 bg-white">Set: Removed</option>
-              <option value="In Progress" className="text-slate-800 bg-white">Set: In Progress</option>
+              <option value="" className="text-slate-800 bg-white">Status...</option>
+              <option value="Continued" className="text-slate-800 bg-white">Set Continued</option>
+              <option value="Pending" className="text-slate-800 bg-white">Set Pending</option>
+              <option value="Removal" className="text-slate-800 bg-white">Set Removal</option>
+              <option value="Removed" className="text-slate-800 bg-white">Set Removed</option>
+              <option value="In Progress" className="text-slate-800 bg-white">Set In Progress</option>
             </select>
           </div>
         )}

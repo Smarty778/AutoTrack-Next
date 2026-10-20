@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { TrackerRecord } from '../types';
 import { SPREADSHEET_COLUMNS } from '../data/mockData';
@@ -18,7 +18,13 @@ import {
   Check,
   Shield,
   Lock,
-  Clock
+  Clock,
+  LayoutGrid,
+  Table as TableIcon,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  Car
 } from 'lucide-react';
 
 interface RecordTableProps {
@@ -45,10 +51,25 @@ export const RecordTable: React.FC<RecordTableProps> = ({
     lastStatusChange
   } = useApp();
 
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [expandedCardIds, setExpandedCardIds] = useState<string[]>([]);
   const [columnVisibilityMenuOpen, setColumnVisibilityMenuOpen] = useState(false);
   const [visibleColKeys, setVisibleColKeys] = useState<string[]>(
     SPREADSHEET_COLUMNS.map(c => c.key)
   );
+
+  // Auto-switch to mobile-optimized Cards view on small screens (<768px)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setViewMode('cards');
+    }
+  }, []);
+
+  const toggleExpandCard = (id: string) => {
+    setExpandedCardIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
 
   const today = new Date().toISOString().split('T')[0];
   const canEditStatus = currentUser.role === 'admin' || agentPermissions.canEditStatus;
@@ -184,14 +205,40 @@ export const RecordTable: React.FC<RecordTableProps> = ({
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden w-full flex flex-col">
       
       {/* Table Header Controls bar */}
-      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 text-xs">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-800">
-            {currentUser.role === 'admin' ? 'Master Spreadsheet View' : `Assigned Leads (${currentUser.name})`}
+          {/* Segmented View Mode Switcher (Cards / Table) */}
+          <div className="flex items-center bg-slate-200/90 p-0.5 rounded-lg border border-slate-300">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer min-h-[30px] ${
+                viewMode === 'cards' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Mobile Cards Feed View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer min-h-[30px] ${
+                viewMode === 'table' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Spreadsheet Table View"
+            >
+              <TableIcon className="w-3.5 h-3.5" />
+              <span>Table</span>
+            </button>
+          </div>
+
+          <span className="font-semibold text-slate-800 hidden sm:inline">
+            {currentUser.role === 'admin' ? 'Master Spreadsheet' : 'Assigned Leads'}
           </span>
-          <span className="text-slate-400">&middot;</span>
+          <span className="text-slate-400 hidden sm:inline">&middot;</span>
           <span className="font-mono-numbers text-slate-500 font-medium">
-            Showing {visibleRecords.length} record{visibleRecords.length === 1 ? '' : 's'}
+            {visibleRecords.length} record{visibleRecords.length === 1 ? '' : 's'}
           </span>
         </div>
 
@@ -201,7 +248,7 @@ export const RecordTable: React.FC<RecordTableProps> = ({
             <button
               type="button"
               onClick={onOpenPermissionsModal}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md font-medium transition-colors cursor-pointer shadow-2xs"
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md font-medium transition-colors cursor-pointer shadow-2xs"
               title="Admin Access Control: Configure what fields agents are permitted to edit"
             >
               <Shield className="w-3.5 h-3.5 text-amber-600" />
@@ -209,28 +256,38 @@ export const RecordTable: React.FC<RecordTableProps> = ({
             </button>
           )}
 
-          {currentUser.role === 'user' && (
-            <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-600 bg-white border border-slate-200 px-2.5 py-1.5 rounded-md shadow-2xs">
-              <Shield className="w-3 h-3 text-blue-600" />
-              <span>
-                Edit Rights: {agentPermissions.canEditStatus ? 'Status' : ''}
-                {agentPermissions.canEditRemarks ? ' &middot; Notes' : ''}
-                {agentPermissions.canEditDueDate ? ' &middot; Due Date' : ''}
-                {agentPermissions.canEditVehicleSpecs ? ' &middot; Specs' : ''}
-                {!agentPermissions.canEditStatus && !agentPermissions.canEditRemarks && !agentPermissions.canEditVehicleSpecs && 'Read-Only'}
-              </span>
-            </div>
+          {/* Select all toggle in Cards mode */}
+          {viewMode === 'cards' && visibleRecords.length > 0 && (
+            <button
+              type="button"
+              onClick={() => selectAllRecords(!allSelected)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer min-h-[32px]"
+            >
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={input => {
+                  if (input) input.indeterminate = someSelected;
+                }}
+                onChange={(e) => selectAllRecords(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900 pointer-events-none"
+              />
+              <span className="text-[11px] font-medium">{allSelected ? 'Deselect All' : 'Select All'}</span>
+            </button>
           )}
 
-          {/* Column Visibility Manager */}
-          <button
-            type="button"
-            onClick={() => setColumnVisibilityMenuOpen(!columnVisibilityMenuOpen)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-            <span>Customize Columns ({visibleColKeys.length}/26)</span>
-          </button>
+          {/* Column Visibility Manager (primarily for Table view) */}
+          {viewMode === 'table' && (
+            <button
+              type="button"
+              onClick={() => setColumnVisibilityMenuOpen(!columnVisibilityMenuOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer min-h-[32px]"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Customize Columns ({visibleColKeys.length}/26)</span>
+              <span className="sm:hidden">Cols ({visibleColKeys.length})</span>
+            </button>
+          )}
 
           {columnVisibilityMenuOpen && (
             <>
@@ -308,8 +365,265 @@ export const RecordTable: React.FC<RecordTableProps> = ({
         </div>
       )}
 
-      {/* High-Density Spreadsheet Container with Horizontal & Vertical Scroll - Fit to Screen */}
-      <div className="overflow-x-auto overflow-y-auto max-h-[70vh] min-h-[420px] w-full">
+      {/* MOBILE CARDS VIEW */}
+      {viewMode === 'cards' ? (
+        <div className="p-2.5 sm:p-4 space-y-3 bg-slate-50/60 max-h-[72vh] overflow-y-auto w-full">
+          {visibleRecords.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
+              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-2">
+                <SlidersHorizontal className="w-6 h-6" />
+              </div>
+              <p className="font-semibold text-slate-700 text-sm">No vehicle records found</p>
+              <p className="text-xs text-slate-400 mt-1">Try adjusting your filters or search keywords.</p>
+            </div>
+          ) : (
+            visibleRecords.map((rec) => {
+              const isSelected = selectedRecordIds.includes(rec.id);
+              const isExpanded = expandedCardIds.includes(rec.id);
+              const isOverdue = rec.dueDate && rec.dueDate < today && rec.status !== 'Continued' && rec.status !== 'Removed' && rec.status !== 'Removal';
+              
+              const borderLeftColor = 
+                rec.status === 'Continued' ? 'border-l-emerald-500' :
+                rec.status === 'Pending' ? 'border-l-amber-500' :
+                rec.status === 'Removal' ? 'border-l-orange-500' :
+                rec.status === 'Removed' ? 'border-l-rose-600' : 'border-l-sky-500';
+
+              return (
+                <div
+                  key={rec.id}
+                  className={`bg-white rounded-xl border border-slate-200 border-l-4 ${borderLeftColor} p-3 sm:p-4 shadow-xs transition-all ${
+                    isSelected ? 'ring-2 ring-blue-500/50 bg-blue-50/20' : ''
+                  }`}
+                >
+                  {/* Card Top Header: Checkbox + RegNo + Status inline selector + Tracker indicator */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectRecord(rec.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer shrink-0"
+                      />
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono-numbers font-bold text-slate-900 text-sm tracking-tight">
+                            {rec.regNo}
+                          </span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                            rec.trackerStatus === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {rec.trackerStatus}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-600 font-medium">
+                          {rec.make} {rec.model} &middot; <span className="text-slate-500">{rec.year} ({rec.color})</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Service Status: Interactive for authorized users */}
+                    <div className="shrink-0">
+                      {canEditStatus ? (
+                        <select
+                          value={rec.status}
+                          onChange={(e) => {
+                            const newStatus = e.target.value as TrackerRecord['status'];
+                            updateRecord(rec.id, {
+                              status: newStatus,
+                              statusChangedAt: new Date().toISOString(),
+                              statusChangedBy: currentUser.username,
+                              statusChangedByUserId: currentUser.id,
+                            });
+                          }}
+                          className={`text-[11px] font-bold py-1 px-2 rounded-md border cursor-pointer focus:outline-none shadow-2xs ${getStatusDropdownClass(rec.status)}`}
+                        >
+                          <option value="Continued">Continued</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Removal">Removal</option>
+                          <option value="Removed">Removed</option>
+                          <option value="In Progress">In Progress</option>
+                        </select>
+                      ) : (
+                        <span className={getStatusBadgeClass(rec.status)}>
+                          {rec.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Customer & Due Date Info */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div>
+                      <span className="text-slate-400 text-[11px] block">Customer:</span>
+                      <span className="font-semibold text-slate-800">{rec.customerName}</span>
+                      {rec.contactPerson && rec.contactPerson !== rec.customerName && (
+                        <span className="text-[11px] text-slate-500 ml-1">({rec.contactPerson})</span>
+                      )}
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-slate-400 text-[11px] block">Due Date:</span>
+                      <div className="flex items-center gap-1 font-mono-numbers">
+                        {isOverdue && <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                        <span className={`font-semibold ${isOverdue ? 'text-red-600 font-bold' : 'text-slate-700'}`}>
+                          {rec.dueDate || 'No Due Date'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Coordinator & City strip */}
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <div className="flex items-center gap-1.5 text-slate-600 truncate">
+                      <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="text-slate-400">Coordinator:</span>
+                      {currentUser.role === 'admin' ? (
+                        <select
+                          value={rec.assignedToUserId || users.find(u => u.name.toLowerCase() === (rec.coordinatedBy || '').toLowerCase())?.id || users[0]?.id}
+                          onChange={(e) => {
+                            const newUserId = e.target.value;
+                            const targetUser = users.find(u => u.id === newUserId);
+                            if (targetUser) {
+                              assignRecords([rec.id], targetUser.id, targetUser.name);
+                            }
+                          }}
+                          className="bg-white border border-slate-300 rounded px-1.5 py-0.5 text-[11px] font-semibold text-slate-800"
+                        >
+                          {users.filter(u => u.active).map(u => (
+                            <option key={u.id} value={u.id}>
+                              {u.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="font-semibold text-slate-800 truncate">
+                          {rec.coordinatedBy || rec.salesPerson}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 text-slate-500 shrink-0">
+                      <MapPin className="w-3 h-3 text-slate-400" />
+                      <span>{rec.instCity}</span>
+                    </div>
+                  </div>
+
+                  {/* Quick Action Buttons */}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    {rec.contact1 && (
+                      <a
+                        href={`tel:${rec.contact1.replace(/[^0-9+]/g, '')}`}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 rounded-lg text-xs font-semibold transition-colors min-h-[38px]"
+                        title="Call Customer"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-slate-600" />
+                        <span className="font-mono-numbers">{rec.contact1}</span>
+                      </a>
+                    )}
+
+                    {rec.contact1 && (
+                      <button
+                        type="button"
+                        onClick={() => openWhatsApp(rec.contact1, rec)}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold transition-colors min-h-[38px] cursor-pointer"
+                        title="Chat on WhatsApp"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>WhatsApp</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => onEditRecord(rec)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-700 text-white rounded-lg text-xs font-semibold transition-colors min-h-[38px] cursor-pointer shrink-0"
+                      title="Edit Record"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onPrintJobCard(rec)}
+                      className="flex items-center justify-center gap-1 px-2.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors min-h-[38px] cursor-pointer shrink-0"
+                      title="Print Installation Job Slip"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-500" />
+                      <span className="hidden xs:inline">Slip</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandCard(rec.id)}
+                      className="ml-auto text-slate-500 hover:text-slate-800 p-2 rounded-lg text-xs flex items-center gap-0.5 cursor-pointer min-h-[38px]"
+                      title="View all 26 spreadsheet specifications"
+                    >
+                      <span className="text-[11px]">{isExpanded ? 'Less' : 'Specs'}</span>
+                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  {/* Expandable All 26 Specs Accordion */}
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-[11px] bg-slate-50/70 p-2.5 rounded-lg text-slate-700 animate-in fade-in duration-100">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Engine #</span>
+                        <span className="font-mono-numbers font-medium">{rec.engine || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Chassis #</span>
+                        <span className="font-mono-numbers font-medium">{rec.chassis || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">CNIC #</span>
+                        <span className="font-mono-numbers font-medium">{rec.cnicNo || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Hardware Unit</span>
+                        <span className="font-medium text-slate-800">{rec.unit}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Insurance</span>
+                        <span className="font-medium">{rec.insurance} ({rec.insStatus})</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Install Date</span>
+                        <span className="font-mono-numbers">{rec.dateOfInstallation || rec.date}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Technician</span>
+                        <span className="font-medium">{rec.technicianName}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Order #</span>
+                        <span className="font-mono-numbers">{rec.orderNo}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Showroom</span>
+                        <span>{rec.showroom || '-'}</span>
+                      </div>
+                      {rec.remarks && (
+                        <div className="col-span-2 sm:col-span-3 pt-1 border-t border-slate-200">
+                          <span className="text-slate-400 block text-[10px] uppercase">Remarks / Notes</span>
+                          <span className="text-slate-600 italic">{rec.remarks}</span>
+                        </div>
+                      )}
+                      {rec.statusChangedAt && (
+                        <div className="col-span-2 sm:col-span-3 text-[10px] text-slate-400">
+                          Status changed {formatStatusTimestamp(rec.statusChangedAt)} by @{rec.statusChangedBy || 'admin'}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        /* High-Density Spreadsheet Container with Horizontal & Vertical Scroll - Fit to Screen */
+        <div className="overflow-x-auto overflow-y-auto max-h-[70vh] min-h-[420px] w-full">
         <table className="min-w-full w-max text-left text-xs border-collapse">
           
           {/* Header Row */}
@@ -717,6 +1031,7 @@ export const RecordTable: React.FC<RecordTableProps> = ({
           </tbody>
         </table>
       </div>
+    )}
 
       {/* Spreadsheet Bottom Status Bar */}
       <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between text-[11px] text-slate-500 gap-2">

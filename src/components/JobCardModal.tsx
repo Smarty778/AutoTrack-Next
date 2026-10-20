@@ -22,28 +22,28 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[96dvh] sm:max-h-[92vh] flex flex-col overflow-hidden">
         
         {/* Modal Top Bar (hidden during browser print) */}
-        <div className="px-6 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50 print:hidden">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-800">Technician Installation Slip / Job Sheet</span>
-            <span className="text-xs text-slate-500 font-mono-numbers">({record.orderNo})</span>
+            <span className="text-xs sm:text-sm font-bold text-slate-800">Technician Installation Slip</span>
+            <span className="text-[11px] text-slate-500 font-mono-numbers">({record.orderNo})</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer min-h-[36px]"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print Job Sheet</span>
+              <span>Print Slip</span>
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -51,26 +51,26 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
         </div>
 
         {/* Printable Body */}
-        <div className="flex-1 overflow-y-auto p-8 text-slate-900 bg-white print:p-0 print:overflow-visible">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 text-slate-900 bg-white print:p-0 print:overflow-visible text-xs">
           
           {/* Company Slip Header */}
-          <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
+          <div className="border-b-2 border-slate-900 pb-4 mb-5 flex flex-col sm:flex-row justify-between items-start gap-3">
             <div>
-              <div className="text-xl font-black tracking-tight text-slate-900">
+              <div className="text-lg sm:text-xl font-black tracking-tight text-slate-900">
                 AUTOTRACK FLEET &amp; SECURITY SOLUTIONS
               </div>
-              <p className="text-xs text-slate-600 font-medium mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-600 font-medium mt-0.5">
                 Pakistan Vehicle GPS Tracking &middot; Telematics &middot; Fleet Operations Hub
               </p>
             </div>
-            <div className="text-right">
-              <div className="text-xs font-bold bg-slate-100 px-3 py-1 rounded border border-slate-300 font-mono-numbers inline-block">
+            <div className="text-left sm:text-right w-full sm:w-auto flex sm:flex-col justify-between items-start sm:items-end">
+              <div className="text-xs font-bold bg-slate-100 px-2.5 py-1 rounded border border-slate-300 font-mono-numbers inline-block">
                 ORDER #{record.orderNo}
               </div>
-              <div className="text-xs text-slate-500 mt-1 font-mono-numbers">
+              <div className="text-[11px] sm:text-xs text-slate-500 mt-1 font-mono-numbers">
                 Date: {record.dateOfInstallation || record.date}
               </div>
-              <div className="text-xs font-semibold text-slate-700">
+              <div className="text-[11px] sm:text-xs font-semibold text-slate-700">
                 City: {record.instCity}
               </div>
             </div>
