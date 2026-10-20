@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
 
 export const LoginView: React.FC = () => {
   const { login, users } = useApp();
@@ -29,7 +29,7 @@ export const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-6 sm:py-12 px-3.5 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-6 sm:py-12 px-3.5 sm:px-6 lg:px-8 overflow-x-hidden">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         
         {/* Brand Lockup */}
@@ -73,7 +73,7 @@ export const LoginView: React.FC = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter User ID (e.g. admin)"
-                  className="block w-full pl-9 pr-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white text-slate-900 font-medium min-h-[42px]"
+                  className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white text-slate-900 font-medium min-h-[42px]"
                 />
               </div>
             </div>
@@ -93,12 +93,12 @@ export const LoginView: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter account password"
-                  className="block w-full pl-9 pr-10 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white text-slate-900 font-medium min-h-[42px]"
+                  className="block w-full pl-9 pr-10 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white text-slate-900 font-medium min-h-[42px]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 min-h-[42px]"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 min-h-[42px] min-w-[36px] justify-center cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -109,7 +109,7 @@ export const LoginView: React.FC = () => {
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-h-[42px]"
+                className="w-full py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-xs sm:text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
               >
                 <span>Sign In to Portal</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -117,7 +117,7 @@ export const LoginView: React.FC = () => {
             </div>
           </form>
 
-          {/* Registered User Accounts Directory (Click to populate User ID field only) */}
+          {/* Registered User Accounts Directory */}
           <div className="mt-6 pt-5 border-t border-slate-100">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
               <KeyRound className="w-3.5 h-3.5 text-slate-400" />
@@ -125,7 +125,7 @@ export const LoginView: React.FC = () => {
             </div>
 
             <p className="text-[11px] text-slate-500 mb-2.5">
-              Click a user badge to paste their User ID into the box above, then enter the password:
+              Click a user badge to populate their User ID, then enter the password:
             </p>
 
             <div className="flex flex-wrap gap-1.5">
@@ -138,15 +138,15 @@ export const LoginView: React.FC = () => {
                     setPassword('');
                     setErrorMessage('');
                   }}
-                  className={`text-[11px] px-2.5 py-1 rounded-md border font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`text-[11px] px-2.5 py-1 rounded-md border font-medium flex items-center gap-1.5 transition-colors cursor-pointer min-h-[32px] ${
                     username === u.username
                       ? 'bg-slate-900 text-white border-slate-900'
                       : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
                   }`}
                   title={`Click to put User ID "${u.username}" in the login input`}
                 >
-                  <span className={`w-2 h-2 rounded-full ${u.role === 'admin' ? 'bg-purple-500' : 'bg-blue-500'}`}></span>
-                  <span className="font-semibold">{u.name.split(' ')[0]}</span>
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${u.role === 'admin' ? 'bg-purple-500' : 'bg-blue-500'}`}></span>
+                  <span className="font-semibold truncate max-w-[90px]">{u.name.split(' ')[0]}</span>
                   <span className="font-mono text-[10px] opacity-75">(@{u.username})</span>
                 </button>
               ))}
@@ -155,7 +155,7 @@ export const LoginView: React.FC = () => {
 
         </div>
 
-        <p className="mt-4 text-center text-[11px] text-slate-500">
+        <p className="mt-4 text-center text-[11px] text-slate-500 px-2">
           Direct in-portal user switching is disabled. Each user must authenticate with their User ID &amp; Password.
         </p>
       </div>

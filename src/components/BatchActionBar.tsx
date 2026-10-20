@@ -6,10 +6,7 @@ import {
   UserCheck, 
   X, 
   Trash2, 
-  CheckCircle, 
-  Radio, 
-  Download,
-  AlertCircle
+  Download
 } from 'lucide-react';
 import { TrackerRecord } from '../types';
 
@@ -75,7 +72,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
   };
 
   return (
-    <div className="fixed bottom-2.5 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-1.25rem)] max-w-4xl bg-slate-900 text-white rounded-xl shadow-2xl border border-slate-700/80 p-2.5 sm:px-4 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3 animate-in slide-in-from-bottom-5 duration-200">
+    <div className="fixed bottom-2.5 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-1rem)] max-w-4xl bg-slate-900 text-white rounded-xl shadow-2xl border border-slate-700/80 p-2 sm:px-4 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3 animate-in slide-in-from-bottom-5 duration-200">
       
       {/* Selection count badge */}
       <div className="flex items-center gap-2">
@@ -97,12 +94,12 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
         
         {/* ASSIGNMENT TOOL (Admin only) */}
         {currentUser.role === 'admin' && (
-          <div className="flex items-center gap-1 bg-slate-800/90 border border-slate-700 rounded-lg p-1 max-w-[200px] sm:max-w-none">
+          <div className="flex items-center gap-1 bg-slate-800/90 border border-slate-700 rounded-lg p-1 max-w-[170px] sm:max-w-none">
             <UserCheck className="w-3.5 h-3.5 text-blue-400 ml-1 shrink-0" />
             <select
               value={selectedUserToAssign}
               onChange={(e) => setSelectedUserToAssign(e.target.value)}
-              className="text-xs bg-transparent text-white border-none focus:outline-none pr-1 py-0.5 truncate max-w-[120px] sm:max-w-xs"
+              className="text-xs bg-transparent text-white border-none focus:outline-none pr-1 py-0.5 truncate max-w-[100px] sm:max-w-xs cursor-pointer"
             >
               <option value="" className="text-slate-800 bg-white">Assign staff...</option>
               {staffUsers.map(u => (
@@ -115,7 +112,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
               type="button"
               disabled={!selectedUserToAssign}
               onClick={handleApplyAssignment}
-              className="px-2 py-1 text-[11px] sm:text-xs font-semibold bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 text-white rounded transition-colors whitespace-nowrap cursor-pointer"
+              className="px-2 py-1 text-[11px] sm:text-xs font-semibold bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 text-white rounded transition-colors whitespace-nowrap cursor-pointer min-h-[30px]"
             >
               Assign
             </button>
@@ -131,7 +128,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
                 const val = e.target.value as TrackerRecord['status'];
                 if (val) handleApplyStatus(val);
               }}
-              className="text-xs bg-transparent text-white border-none focus:outline-none px-1.5 py-0.5"
+              className="text-xs bg-transparent text-white border-none focus:outline-none px-1.5 py-0.5 cursor-pointer max-w-[110px] sm:max-w-none"
             >
               <option value="" className="text-slate-800 bg-white">Status...</option>
               <option value="Continued" className="text-slate-800 bg-white">Set Continued</option>
@@ -152,7 +149,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
                 const val = e.target.value as TrackerRecord['trackerStatus'];
                 if (val) handleApplyTrackerStatus(val);
               }}
-              className="text-xs bg-transparent text-white border-none focus:outline-none px-2 py-0.5"
+              className="text-xs bg-transparent text-white border-none focus:outline-none px-2 py-0.5 cursor-pointer"
             >
               <option value="" className="text-slate-800 bg-white">Tracker State...</option>
               <option value="Active" className="text-slate-800 bg-white">Set: Active</option>
@@ -168,19 +165,19 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
         <button
           type="button"
           onClick={onExportSelected}
-          className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white hover:bg-slate-800 rounded transition-colors cursor-pointer"
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white hover:bg-slate-800 rounded transition-colors cursor-pointer min-h-[32px]"
           title="Download CSV for selected rows"
         >
           <Download className="w-3.5 h-3.5" />
           <span className="hidden md:inline">Export CSV</span>
         </button>
 
-        {/* DELETE (Admin or authorized agents only) */}
+        {/* DELETE */}
         {canDelete && (
           <button
             type="button"
             onClick={handleDelete}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded transition-colors cursor-pointer min-h-[32px]"
             title="Delete selected records"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -192,7 +189,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
         <button
           type="button"
           onClick={clearSelection}
-          className="p-1.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors ml-1"
+          className="p-1.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors ml-1 cursor-pointer min-h-[32px] min-w-[32px] flex items-center justify-center"
           title="Clear Selection"
         >
           <X className="w-4 h-4" />
@@ -212,7 +209,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer min-h-[32px] min-w-[32px] flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -227,7 +224,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="px-3.5 py-1.5 border border-slate-300 rounded-md text-slate-600 hover:bg-slate-50 font-medium cursor-pointer"
+                  className="px-3.5 py-1.5 border border-slate-300 rounded-md text-slate-600 hover:bg-slate-50 font-medium cursor-pointer min-h-[36px]"
                 >
                   Cancel
                 </button>
@@ -237,7 +234,7 @@ export const BatchActionBar: React.FC<BatchActionBarProps> = ({ onExportSelected
                     setShowDeleteConfirm(false);
                     deleteRecords(selectedRecordIds);
                   }}
-                  className="px-3.5 py-1.5 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 shadow-xs cursor-pointer flex items-center gap-1.5 min-h-[36px]"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Yes, Delete Records</span>

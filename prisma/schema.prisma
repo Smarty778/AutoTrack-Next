@@ -1,13 +1,9 @@
-// AutoTrack Manager - Production Prisma Schema
-// Designed to match the 26-column vehicle GPS tracker spreadsheet & Sales CRM
-
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+    provider = "postgresql"
 }
 
 // -----------------------------------------------------------------------------

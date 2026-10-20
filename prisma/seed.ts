@@ -40,59 +40,6 @@ async function main() {
       },
     },
   });
-
-  const bilalUser = await prisma.user.upsert({
-    where: { username: 'bilal' },
-    update: {},
-    create: {
-      id: 'user-bilal',
-      name: 'Bilal Ahmed',
-      username: 'bilal',
-      email: 'bilal@autotrack.com',
-      passwordHash: '$2b$10$YourHashedPasswordHereOrPlainTextForDev',
-      role: UserRole.USER,
-      phone: '+92 301 5544123',
-      city: 'Karachi',
-      avatarColor: 'bg-blue-600',
-      active: true,
-      customPermissions: {
-        create: {
-          canEditStatus: true,
-          canEditTrackerStatus: true,
-          canEditRemarks: true,
-          canEditDueDate: true,
-          canEditContactInfo: true,
-          canEditInsurance: false,
-          canEditVehicleSpecs: false,
-          canEditEngineChassis: false,
-          canEditHardwareUnit: false,
-          canEditTechnicianCity: false,
-          canEditOrderNoDate: false,
-          canCreateNewRecords: true,
-          canDeleteRecords: false,
-          canReassignSalesPerson: false,
-        },
-      },
-    },
-  });
-
-  const tariqUser = await prisma.user.upsert({
-    where: { username: 'tariq' },
-    update: {},
-    create: {
-      id: 'user-tariq',
-      name: 'Tariq Khan',
-      username: 'tariq',
-      email: 'tariq@autotrack.com',
-      passwordHash: '$2b$10$YourHashedPasswordHereOrPlainTextForDev',
-      role: UserRole.USER,
-      phone: '+92 333 4419821',
-      city: 'Lahore',
-      avatarColor: 'bg-emerald-600',
-      active: true,
-    },
-  });
-
   // 2. Seed Master Vehicle Tracker Records (Covering all 5 Statuses)
   const sampleRecords = [
     {

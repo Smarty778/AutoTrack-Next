@@ -7,9 +7,6 @@ import {
   CalendarClock, 
   Radio, 
   UserX,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
   RotateCw,
   ArchiveX
 } from 'lucide-react';
@@ -22,14 +19,12 @@ export const StatsOverview: React.FC = () => {
   const baseList = currentUser.role === 'admin' ? records : visibleRecords;
   const totalCount = baseList.length;
   
-  // Status counts (Continued, Pending, Removal, Removed, In Progress)
+  // Status counts
   const continuedCount = baseList.filter(r => r.status === 'Continued').length;
-  const pendingCount = baseList.filter(r => r.status === 'Pending').length;
   const removalCount = baseList.filter(r => r.status === 'Removal').length;
   const removedCount = baseList.filter(r => r.status === 'Removed').length;
-  const inProgressCount = baseList.filter(r => r.status === 'In Progress').length;
 
-  // Tracker status counts (Active vs NR - Not Reporting)
+  // Tracker status counts (Active vs NR)
   const activeCount = baseList.filter(r => r.trackerStatus === 'Active').length;
   const nrCount = baseList.filter(r => r.trackerStatus === 'NR').length;
 
@@ -56,10 +51,10 @@ export const StatsOverview: React.FC = () => {
           setFilter('dueDatePreset', 'all');
           setFilter('trackerStatus', 'all');
         }}
-        className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-all shadow-xs flex flex-col justify-between active:scale-[0.99]"
+        className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-all shadow-2xs flex flex-col justify-between active:scale-[0.99]"
       >
         <div className="flex items-center justify-between">
-          <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate mr-1">
+          <span className="text-[10px] sm:text-xs font-medium text-slate-500 truncate mr-1">
             {currentUser.role === 'admin' ? 'Total Fleet' : 'Assigned Fleet'}
           </span>
           <Car className="w-4 h-4 text-slate-400 shrink-0" />
@@ -78,12 +73,12 @@ export const StatsOverview: React.FC = () => {
       {/* 2. Continued Service Subscriptions */}
       <div 
         onClick={() => setFilter('status', filters.status === 'Continued' ? 'all' : 'Continued')}
-        className={`p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-xs flex flex-col justify-between active:scale-[0.99] ${
+        className={`p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-2xs flex flex-col justify-between active:scale-[0.99] ${
           filters.status === 'Continued' ? 'border-emerald-400 bg-emerald-50/50' : 'bg-white border-slate-200 hover:border-slate-300'
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate mr-1">Continued</span>
+          <span className="text-[10px] sm:text-xs font-medium text-slate-500 truncate mr-1">Continued</span>
           <RotateCw className="w-4 h-4 text-emerald-600 shrink-0" />
         </div>
         <div className="mt-1 flex items-baseline gap-1.5 sm:gap-2">
@@ -100,12 +95,12 @@ export const StatsOverview: React.FC = () => {
       {/* 3. Due Date Alert / Overdue */}
       <div 
         onClick={() => setFilter('dueDatePreset', filters.dueDatePreset === 'overdue' ? 'all' : 'overdue')}
-        className={`p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-xs flex flex-col justify-between active:scale-[0.99] ${
+        className={`p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-2xs flex flex-col justify-between active:scale-[0.99] ${
           filters.dueDatePreset === 'overdue' ? 'border-red-400 bg-red-50/50' : 'bg-white border-slate-200 hover:border-slate-300'
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate mr-1">Overdue Follow-ups</span>
+          <span className="text-[10px] sm:text-xs font-medium text-slate-500 truncate mr-1">Overdue Follow-ups</span>
           <CalendarClock className="w-4 h-4 text-red-500 shrink-0" />
         </div>
         <div className="mt-1 flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
@@ -126,21 +121,21 @@ export const StatsOverview: React.FC = () => {
       {/* 4. Active vs NR (Not Reporting) Trackers */}
       <div 
         onClick={() => setFilter('trackerStatus', filters.trackerStatus === 'NR' ? 'all' : 'NR')}
-        className={`p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-xs flex flex-col justify-between active:scale-[0.99] ${
+        className={`p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-2xs flex flex-col justify-between active:scale-[0.99] ${
           filters.trackerStatus === 'NR' ? 'border-amber-400 bg-amber-50/50' : 'bg-white border-slate-200 hover:border-slate-300'
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate mr-1">Active vs NR</span>
+          <span className="text-[10px] sm:text-xs font-medium text-slate-500 truncate mr-1">Active vs NR</span>
           <Radio className="w-4 h-4 text-slate-500 shrink-0" />
         </div>
-        <div className="mt-1 flex items-baseline gap-1.5 font-mono-numbers">
-          <span className="text-lg sm:text-xl font-bold text-emerald-600">
-            {activeCount} <span className="text-[10px] font-normal text-slate-400">Live</span>
+        <div className="mt-1 flex items-baseline gap-1 font-mono-numbers">
+          <span className="text-base sm:text-xl font-bold text-emerald-600">
+            {activeCount} <span className="text-[9px] font-normal text-slate-400">Live</span>
           </span>
           <span className="text-slate-300">/</span>
-          <span className="text-lg sm:text-xl font-bold text-red-600">
-            {nrCount} <span className="text-[10px] font-normal text-slate-400">NR</span>
+          <span className="text-base sm:text-xl font-bold text-red-600">
+            {nrCount} <span className="text-[9px] font-normal text-slate-400">NR</span>
           </span>
         </div>
         <div className="mt-1 text-[10px] sm:text-[11px] text-slate-500 truncate">
@@ -152,12 +147,12 @@ export const StatsOverview: React.FC = () => {
       {currentUser.role === 'admin' ? (
         <div 
           onClick={() => setFilter('salesPerson', filters.salesPerson === 'unassigned' ? 'all' : 'unassigned')}
-          className={`col-span-2 sm:col-span-1 p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-xs flex flex-col justify-between active:scale-[0.99] ${
+          className={`col-span-2 sm:col-span-1 p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-2xs flex flex-col justify-between active:scale-[0.99] ${
             filters.salesPerson === 'unassigned' ? 'border-purple-400 bg-purple-50/50' : 'bg-white border-slate-200 hover:border-slate-300'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate mr-1">Unassigned Fleet</span>
+            <span className="text-[10px] sm:text-xs font-medium text-slate-500 truncate mr-1">Unassigned Fleet</span>
             <UserX className="w-4 h-4 text-purple-600 shrink-0" />
           </div>
           <div className="mt-1 flex items-baseline gap-1.5 sm:gap-2">
@@ -173,12 +168,12 @@ export const StatsOverview: React.FC = () => {
       ) : (
         <div 
           onClick={() => setFilter('status', filters.status === 'Removal' ? 'all' : 'Removal')}
-          className={`col-span-2 sm:col-span-1 p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-xs flex flex-col justify-between active:scale-[0.99] ${
+          className={`col-span-2 sm:col-span-1 p-3 sm:p-4 rounded-xl border cursor-pointer transition-all shadow-2xs flex flex-col justify-between active:scale-[0.99] ${
             filters.status === 'Removal' || filters.status === 'Removed' ? 'border-rose-400 bg-rose-50/40' : 'bg-white border-slate-200 hover:border-slate-300'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate mr-1">Removal Queue</span>
+            <span className="text-[10px] sm:text-xs font-medium text-slate-500 truncate mr-1">Removal Queue</span>
             <ArchiveX className="w-4 h-4 text-rose-600 shrink-0" />
           </div>
           <div className="mt-1 flex items-baseline gap-1.5 sm:gap-2">

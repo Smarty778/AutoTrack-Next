@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrackerRecord } from '../types';
 import { useApp } from '../context/AppContext';
-import { X, Save, Car, Cpu, FileCheck, Lock, ShieldAlert, Clock } from 'lucide-react';
+import { X, Save, Car, Cpu, FileCheck, Lock, Clock } from 'lucide-react';
 
 interface RecordModalProps {
   isOpen: boolean;
@@ -184,25 +184,25 @@ export const RecordModal: React.FC<RecordModalProps> = ({
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              <h2 className="text-xs sm:text-base font-bold text-slate-900 truncate max-w-[240px] sm:max-w-none">
                 {isEditing ? `Vehicle: ${recordToEdit.regNo}` : 'New Vehicle Tracker Record'}
               </h2>
               {!isAdmin && (
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded shrink-0 ${
                   !canEditAnyField ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
                 }`}>
                   {!canEditAnyField ? 'Read-Only' : 'Agent Access'}
                 </span>
               )}
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+            <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
               Complete vehicle tracking database record (26 Spreadsheet Columns)
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -213,13 +213,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
           <div className={`${!canEditAnyField ? 'bg-red-50 text-red-800 border-red-200' : 'bg-amber-50 text-amber-800 border-amber-200/80'} px-3 sm:px-6 py-2 border-b flex items-center justify-between text-xs gap-2`}>
             <div className="flex items-center gap-2">
               <Lock className={`w-3.5 h-3.5 ${!canEditAnyField ? 'text-red-600' : 'text-amber-600'} shrink-0`} />
-              <span className="text-[11px] leading-tight">
+              <span className="text-[10px] sm:text-[11px] leading-tight">
                 {!canEditAnyField 
                   ? 'All edit permissions are locked by Admin policy. View-only access.'
                   : 'Field edit access is governed by Admin policy. Locked fields are read-only.'}
               </span>
             </div>
-            <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded shrink-0 ${
+            <span className={`text-[9px] sm:text-[10px] font-bold font-mono px-1.5 py-0.5 rounded shrink-0 ${
               !canEditAnyField ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
             }`}>
               {!canEditAnyField ? 'READ-ONLY' : 'POLICY'}
@@ -234,7 +234,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
             onClick={() => setActiveTab('vehicle')}
             className={`py-2.5 sm:py-3 flex items-center gap-1.5 sm:gap-2 border-b-2 transition-colors cursor-pointer shrink-0 min-h-[40px] ${
               activeTab === 'vehicle'
-                ? 'border-slate-900 text-slate-900'
+                ? 'border-slate-900 text-slate-900 font-bold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -248,7 +248,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
             onClick={() => setActiveTab('installation')}
             className={`py-2.5 sm:py-3 flex items-center gap-1.5 sm:gap-2 border-b-2 transition-colors cursor-pointer shrink-0 min-h-[40px] ${
               activeTab === 'installation'
-                ? 'border-slate-900 text-slate-900'
+                ? 'border-slate-900 text-slate-900 font-bold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -262,7 +262,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
             onClick={() => setActiveTab('order')}
             className={`py-2.5 sm:py-3 flex items-center gap-1.5 sm:gap-2 border-b-2 transition-colors cursor-pointer shrink-0 min-h-[40px] ${
               activeTab === 'order'
-                ? 'border-slate-900 text-slate-900'
+                ? 'border-slate-900 text-slate-900 font-bold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -278,10 +278,10 @@ export const RecordModal: React.FC<RecordModalProps> = ({
           {/* TAB 1: VEHICLE & CUSTOMER */}
           {activeTab === 'vehicle' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-semibold text-slate-700">1. Reg No. *</label>
+                    <label className="font-semibold text-slate-700">Reg No. *</label>
                     {!canEditVehicle && <LockIcon />}
                   </div>
                   <input
@@ -291,8 +291,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditVehicle}
                     value={formData.regNo}
                     onChange={handleChange}
-                    placeholder="e.g. LEE-23-4819 or UNREG-..."
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    placeholder="e.g. LEE-23-4819"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditVehicle ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -311,7 +311,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     value={formData.customerName}
                     onChange={handleChange}
                     placeholder="Customer full name"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditContact ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -329,14 +329,14 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     value={formData.contact1}
                     onChange={handleChange}
                     placeholder="+92 300 1234567"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditContact ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">3. Make</label>
@@ -349,8 +349,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditVehicle}
                     value={formData.make}
                     onChange={handleChange}
-                    placeholder="Toyota, Honda, Suzuki..."
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    placeholder="Toyota, Honda..."
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditVehicle ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -362,8 +362,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     <option value="Hyundai" />
                     <option value="Haval" />
                     <option value="Changan" />
-                    <option value="Hino" />
-                    <option value="Isuzu" />
                     <option value="MG" />
                   </datalist>
                 </div>
@@ -379,8 +377,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditVehicle}
                     value={formData.model}
                     onChange={handleChange}
-                    placeholder="e.g. Corolla Altis, Civic, Swift..."
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    placeholder="Corolla Altis"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditVehicle ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -398,7 +396,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     value={formData.year}
                     onChange={handleChange}
                     placeholder="2024"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditVehicle ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -415,15 +413,15 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditVehicle}
                     value={formData.color}
                     onChange={handleChange}
-                    placeholder="White, Silver, Black..."
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    placeholder="White"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditVehicle ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">8. Contact Person / New Owner</label>
@@ -435,8 +433,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditContact}
                     value={formData.contactPerson}
                     onChange={handleChange}
-                    placeholder="Secondary contact person or driver name"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    placeholder="Driver or secondary contact"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditContact ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -454,7 +452,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     value={formData.cnicNo}
                     onChange={handleChange}
                     placeholder="42101-1234567-1"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditContact ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -466,7 +464,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
           {/* TAB 2: HARDWARE & INSTALLATION */}
           {activeTab === 'installation' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">9. Engine No.</label>
@@ -478,8 +476,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditEngine}
                     value={formData.engine}
                     onChange={handleChange}
-                    placeholder="e.g. 1ZR-FE-881920"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    placeholder="1ZR-FE-881920"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditEngine ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -496,15 +494,15 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditEngine}
                     value={formData.chassis}
                     onChange={handleChange}
-                    placeholder="e.g. NZE170-8492019"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    placeholder="NZE170-8492019"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditEngine ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">25. UNIT (Tracker Model)</label>
@@ -517,8 +515,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditHardware}
                     value={formData.unit}
                     onChange={handleChange}
-                    placeholder="TK-403 4G, Teltonika..."
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    placeholder="TK-403 4G"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditHardware ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -527,8 +525,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     <option value="Teltonika FMB920" />
                     <option value="Coban GPS-303F" />
                     <option value="Concox GT06N" />
-                    <option value="Teltonika FMB125" />
-                    <option value="Queclink GV50" />
                   </datalist>
                 </div>
 
@@ -542,7 +538,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditTrackerState}
                     value={formData.trackerStatus}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-semibold ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-semibold min-h-[38px] cursor-pointer ${
                       canEditTrackerState ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   >
@@ -566,15 +562,15 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditTechCity}
                     value={formData.technicianName}
                     onChange={handleChange}
-                    placeholder="Technician who installed"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    placeholder="Sajid Tech"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditTechCity ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">16. Inst. City</label>
@@ -588,7 +584,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     value={formData.instCity}
                     onChange={handleChange}
                     placeholder="Karachi, Lahore..."
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditTechCity ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -598,8 +594,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     <option value="Islamabad" />
                     <option value="Rawalpindi" />
                     <option value="Faisalabad" />
-                    <option value="Multan" />
-                    <option value="Peshawar" />
                   </datalist>
                 </div>
 
@@ -614,8 +608,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditTechCity}
                     value={formData.showroom}
                     onChange={handleChange}
-                    placeholder="e.g. Toyota Defence Motors, Direct..."
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    placeholder="Toyota Defence Motors"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditTechCity ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -627,7 +621,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
           {/* TAB 3: ORDER, DATES, SALES PERSON & STATUS */}
           {activeTab === 'order' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">15. Order No.</label>
@@ -640,7 +634,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     value={formData.orderNo}
                     onChange={handleChange}
                     placeholder="ORD-12345"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditOrderDates ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -657,13 +651,12 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditOrderDates}
                     value={formData.date}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditOrderDates ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
                 </div>
 
-                {/* 13. SALES PERSON */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">13. Sales Person</label>
@@ -675,15 +668,15 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canReassign}
                     value={formData.salesPerson}
                     onChange={handleChange}
-                    placeholder="Sales representative name"
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    placeholder="Sales rep name"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canReassign ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">20. Date of installation</label>
@@ -695,7 +688,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditOrderDates}
                     value={formData.dateOfInstallation}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditOrderDates ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -703,7 +696,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-semibold text-slate-700">21. Due date (Renewal Deadline)</label>
+                    <label className="font-semibold text-slate-700">21. Due date (Renewal)</label>
                     {!canEditDueDateField && <LockIcon />}
                   </div>
                   <input
@@ -712,7 +705,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditDueDateField}
                     value={formData.dueDate}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-mono-numbers min-h-[38px] ${
                       canEditDueDateField ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -720,7 +713,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-semibold text-slate-700">22. Status (Service Status) *</label>
+                    <label className="font-semibold text-slate-700">22. Status (Service) *</label>
                     {!canEditStatusField && <LockIcon />}
                   </div>
                   <select
@@ -728,7 +721,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditStatusField}
                     value={formData.status}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-semibold ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 font-semibold min-h-[38px] cursor-pointer ${
                       canEditStatusField ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   >
@@ -739,21 +732,18 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     <option value="In Progress">In Progress</option>
                   </select>
                   {recordToEdit?.statusChangedAt && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-600 font-mono-numbers bg-slate-100/90 px-2.5 py-1.5 rounded-md border border-slate-200">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-600 font-mono-numbers bg-slate-100/90 px-2 py-1.5 rounded-md border border-slate-200">
                       <div className="flex items-center gap-1 text-slate-800 font-semibold">
                         <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>Last Changed: <strong>{new Date(recordToEdit.statusChangedAt).toLocaleString()}</strong></span>
+                        <span>Changed: <strong>{new Date(recordToEdit.statusChangedAt).toLocaleString()}</strong></span>
                       </div>
-                      <span className="text-slate-300">&middot;</span>
-                      <span>User ID: <strong className="text-blue-700 font-bold">@{recordToEdit.statusChangedBy || 'admin'}</strong></span>
-                      <span className="text-slate-300">&middot;</span>
-                      <span>Record ID: <strong className="text-slate-900 font-bold">#{recordToEdit.id}</strong></span>
+                      <span>@<strong>{recordToEdit.statusChangedBy || 'admin'}</strong></span>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">11. Insurance</label>
@@ -766,8 +756,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditIns}
                     value={formData.insurance}
                     onChange={handleChange}
-                    placeholder="EFU, Adamjee, TPL, Jubilee..."
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    placeholder="EFU General Insurance"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditIns ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
@@ -777,9 +767,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     <option value="Jubilee General Insurance" />
                     <option value="TPL Insurance" />
                     <option value="Askari General Insurance" />
-                    <option value="Habib Insurance" />
-                    <option value="United Insurance" />
-                    <option value="None / Private Tracking" />
                   </datalist>
                 </div>
 
@@ -793,7 +780,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     disabled={!canEditIns}
                     value={formData.insStatus}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] cursor-pointer ${
                       canEditIns ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   >
@@ -806,18 +793,18 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-semibold text-slate-700">23. Coordinated by (Staff Assignment) *</label>
+                    <label className="font-semibold text-slate-700">23. Coordinated by *</label>
                     {!canEditOrderDates && <LockIcon />}
                   </div>
                   {isAdmin ? (
                     <select
                       value={formData.assignedToUserId || users.find(u => u.name.toLowerCase() === (formData.coordinatedBy || '').toLowerCase())?.id || users[0]?.id}
                       onChange={handleCoordinatorChange}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-slate-900 text-slate-800 font-medium"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-slate-900 text-slate-800 font-medium min-h-[38px] cursor-pointer"
                     >
                       {users.filter(u => u.active).map(u => (
                         <option key={u.id} value={u.id}>
-                          {u.name} ({u.role.toUpperCase()} - {u.city?.split(' ')[0] || 'Office'})
+                          {u.name} ({u.role.toUpperCase()})
                         </option>
                       ))}
                     </select>
@@ -829,7 +816,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                       value={formData.coordinatedBy}
                       onChange={handleChange}
                       placeholder="Operations Desk"
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                         canEditOrderDates ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                       }`}
                     />
@@ -848,7 +835,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                   disabled={!canEditNotes}
                   value={formData.remarks}
                   onChange={handleChange}
-                  placeholder="Service continuation notes, customer follow-up history, removal instructions..."
+                  placeholder="Service continuation notes, customer follow-up history..."
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 ${
                     canEditNotes ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                   }`}
@@ -858,13 +845,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
           )}
 
           {/* Form Actions Footer */}
-          <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex items-center justify-between sm:justify-start gap-2">
               {activeTab === 'vehicle' && (
                 <button
                   type="button"
                   onClick={() => setActiveTab('installation')}
-                  className="w-full sm:w-auto px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-medium cursor-pointer min-h-[40px] flex items-center justify-center"
+                  className="w-full sm:w-auto px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-medium cursor-pointer min-h-[40px] flex items-center justify-center text-xs"
                 >
                   Next: Hardware &rarr;
                 </button>
@@ -873,7 +860,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('order')}
-                  className="w-full sm:w-auto px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-medium cursor-pointer min-h-[40px] flex items-center justify-center"
+                  className="w-full sm:w-auto px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-medium cursor-pointer min-h-[40px] flex items-center justify-center text-xs"
                 >
                   Next: Order &amp; Dates &rarr;
                 </button>
@@ -884,7 +871,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 sm:flex-none px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer min-h-[40px] flex items-center justify-center font-medium"
+                className="flex-1 sm:flex-none px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer min-h-[40px] flex items-center justify-center font-medium text-xs"
               >
                 {canEditAnyField ? 'Cancel' : 'Close'}
               </button>
@@ -893,8 +880,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 <button
                   type="button"
                   disabled
-                  className="flex-1 sm:flex-none px-4 py-2 bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center gap-1.5 font-semibold cursor-not-allowed select-none min-h-[40px]"
-                  title="Editing is restricted by Master Admin policy"
+                  className="flex-1 sm:flex-none px-4 py-2 bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center gap-1.5 font-semibold cursor-not-allowed select-none min-h-[40px] text-xs"
                 >
                   <Lock className="w-4 h-4 text-slate-400" />
                   <span>Read-Only Mode</span>
@@ -903,8 +889,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 <button
                   type="button"
                   disabled
-                  className="flex-1 sm:flex-none px-4 py-2 bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center gap-1.5 font-semibold cursor-not-allowed select-none min-h-[40px]"
-                  title="Record creation is locked by Master Admin policy"
+                  className="flex-1 sm:flex-none px-4 py-2 bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center gap-1.5 font-semibold cursor-not-allowed select-none min-h-[40px] text-xs"
                 >
                   <Lock className="w-4 h-4 text-slate-400" />
                   <span>Creation Locked</span>
@@ -912,7 +897,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
               ) : (
                 <button
                   type="submit"
-                  className="flex-1 sm:flex-none px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 font-semibold shadow-xs cursor-pointer min-h-[40px]"
+                  className="flex-1 sm:flex-none px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-850 transition-colors flex items-center justify-center gap-1.5 font-semibold shadow-2xs cursor-pointer min-h-[40px] text-xs"
                 >
                   <Save className="w-4 h-4" />
                   <span>{isEditing ? 'Save Changes' : 'Create Record'}</span>

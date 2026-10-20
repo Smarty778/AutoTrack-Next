@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { History, Search, Car, User, Clock, ShieldCheck } from 'lucide-react';
+import { History, Search, User, Clock } from 'lucide-react';
 
 export const AuditLogsView: React.FC = () => {
   const { auditLogs } = useApp();
@@ -16,7 +16,7 @@ export const AuditLogsView: React.FC = () => {
   );
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden w-full flex flex-col">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden w-full flex flex-col">
       
       {/* Header */}
       <div className="p-3 sm:p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-xs w-full">
@@ -25,7 +25,7 @@ export const AuditLogsView: React.FC = () => {
             <History className="w-4 h-4 text-slate-700 shrink-0" />
             <span>Audit Trail &amp; Record History</span>
           </h2>
-          <p className="text-slate-500 text-[11px] mt-0.5">
+          <p className="text-slate-500 text-[10px] sm:text-[11px] mt-0.5">
             Log of assignments, service continuations, and record updates.
           </p>
         </div>
@@ -45,7 +45,7 @@ export const AuditLogsView: React.FC = () => {
       {/* Mobile Card Feed View (< md screens) */}
       <div className="md:hidden divide-y divide-slate-100 max-h-[calc(100vh-270px)] min-h-[300px] overflow-y-auto p-2.5 space-y-2.5 bg-slate-50/50">
         {filteredLogs.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
+          <div className="p-8 text-center text-slate-400 bg-white rounded-xl border border-slate-200 text-xs">
             No activity logs matching your search.
           </div>
         ) : (
@@ -58,11 +58,11 @@ export const AuditLogsView: React.FC = () => {
             return (
               <div key={log.id} className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2 text-xs">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 font-semibold text-slate-900">
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-900 truncate">
                     <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{log.actorName}</span>
+                    <span className="truncate">{log.actorName}</span>
                   </div>
-                  <span className="font-medium text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[10px]">
+                  <span className="font-medium text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[10px] shrink-0">
                     {log.action}
                   </span>
                 </div>
@@ -73,7 +73,7 @@ export const AuditLogsView: React.FC = () => {
                     <span>{timeStr}</span>
                   </div>
                   {log.recordRegNo && (
-                    <span className="font-mono-numbers font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                    <span className="font-mono-numbers font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 text-[10px]">
                       {log.recordRegNo}
                     </span>
                   )}
@@ -91,7 +91,7 @@ export const AuditLogsView: React.FC = () => {
       {/* Desktop Table View (>= md screens) */}
       <div className="hidden md:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-270px)] min-h-[380px] w-full">
         <table className="w-full text-left text-xs border-collapse">
-          <thead className="bg-slate-100 text-slate-700 border-b border-slate-200 font-semibold select-none">
+          <thead className="bg-slate-100 text-slate-700 border-b border-slate-200 font-semibold select-none sticky top-0 z-10">
             <tr>
               <th className="px-4 py-2.5 w-44">Timestamp</th>
               <th className="px-4 py-2.5 w-48">Actor (User)</th>

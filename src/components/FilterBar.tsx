@@ -6,7 +6,6 @@ import {
   Search, 
   X, 
   RotateCcw,
-  SlidersHorizontal,
   ChevronDown,
   ChevronUp,
   Filter
@@ -17,7 +16,7 @@ export const FilterBar: React.FC = () => {
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-xs w-full">
+    <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-2xs w-full">
       
       {/* Search Input Row */}
       <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center justify-between">
@@ -28,13 +27,13 @@ export const FilterBar: React.FC = () => {
             value={filters.search}
             onChange={(e) => setFilter('search', e.target.value)}
             placeholder="Search Reg No., Customer, Contact #1, Chassis, Order..."
-            className="w-full pl-9 pr-9 py-2 text-sm sm:text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all text-slate-800 placeholder-slate-400 min-h-[40px]"
+            className="w-full pl-9 pr-9 py-2 text-xs sm:text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all text-slate-800 placeholder-slate-400 min-h-[40px]"
           />
           {filters.search && (
             <button
               type="button"
               onClick={() => setFilter('search', '')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1 min-h-[32px] min-w-[32px] flex items-center justify-center"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -71,7 +70,7 @@ export const FilterBar: React.FC = () => {
         </div>
       </div>
 
-      {/* Structured Filter Selectors Grid (Visible always on md+, toggleable on mobile) */}
+      {/* Structured Filter Selectors Grid */}
       <div className={`${mobileExpanded ? 'grid' : 'hidden md:grid'} grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3 pt-3 mt-3 border-t border-slate-100 w-full animate-in fade-in duration-100`}>
         
         {/* 1. SALES PERSON FILTER */}
@@ -83,7 +82,7 @@ export const FilterBar: React.FC = () => {
             <select
               value={filters.salesPerson}
               onChange={(e) => setFilter('salesPerson', e.target.value)}
-              className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px]"
+              className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px] cursor-pointer"
             >
               <option value="all">All Sales Persons</option>
               <option value="unassigned">⚠️ Unassigned Fleet</option>
@@ -102,7 +101,7 @@ export const FilterBar: React.FC = () => {
           )}
         </div>
 
-        {/* 2. OPERATIONAL STATUS FILTER (Continued / Pending / Removal) */}
+        {/* 2. OPERATIONAL STATUS FILTER */}
         <div>
           <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
             Service Status
@@ -110,7 +109,7 @@ export const FilterBar: React.FC = () => {
           <select
             value={filters.status}
             onChange={(e) => setFilter('status', e.target.value)}
-            className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px]"
+            className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px] cursor-pointer"
           >
             <option value="all">All Statuses</option>
             <option value="Continued">Continued</option>
@@ -129,7 +128,7 @@ export const FilterBar: React.FC = () => {
           <select
             value={filters.dueDatePreset}
             onChange={(e) => setFilter('dueDatePreset', e.target.value as any)}
-            className={`w-full text-xs py-2 px-2 bg-slate-50 border rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
+            className={`w-full text-xs py-2 px-2 bg-slate-50 border rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 min-h-[38px] cursor-pointer ${
               filters.dueDatePreset === 'overdue' ? 'border-red-300 text-red-700 bg-red-50/40 font-semibold' : 'border-slate-200 text-slate-800'
             }`}
           >
@@ -142,7 +141,7 @@ export const FilterBar: React.FC = () => {
           </select>
         </div>
 
-        {/* 4. TRACKER STATUS FILTER (Active vs NR) */}
+        {/* 4. TRACKER STATUS FILTER */}
         <div>
           <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
             Tracker Status
@@ -150,7 +149,7 @@ export const FilterBar: React.FC = () => {
           <select
             value={filters.trackerStatus}
             onChange={(e) => setFilter('trackerStatus', e.target.value)}
-            className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 font-medium min-h-[38px]"
+            className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 font-medium min-h-[38px] cursor-pointer"
           >
             <option value="all">All Tracker States</option>
             <option value="Active">🟢 Active (Reporting)</option>
@@ -170,7 +169,7 @@ export const FilterBar: React.FC = () => {
           <select
             value={filters.instDatePreset}
             onChange={(e) => setFilter('instDatePreset', e.target.value as any)}
-            className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px]"
+            className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px] cursor-pointer"
           >
             <option value="all">All Dates</option>
             <option value="today">Installed Today</option>
@@ -187,7 +186,7 @@ export const FilterBar: React.FC = () => {
           <select
             value={filters.instCity}
             onChange={(e) => setFilter('instCity', e.target.value)}
-            className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px]"
+            className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px] cursor-pointer"
           >
             <option value="all">All Cities</option>
             <option value="Karachi">Karachi</option>

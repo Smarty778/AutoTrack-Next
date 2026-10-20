@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { TrackerRecord } from '../types';
-import { SPREADSHEET_COLUMNS } from '../data/mockData';
 import { X, Download, Upload, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface CSVModalProps {
@@ -119,14 +118,14 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
         '"LEE-23-4819"', '"Muhammad Zeeshan"', '"Toyota"', '"Corolla Altis 1.6"', '"2023"', '"Super White"',
         '"+92 300 8471920"', '"Zeeshan (Self)"', '"1ZR-FE-98214"', '"NZE170-8492019"', '"EFU General Insurance"',
         '"2026-10-10"', '"Bilal Ahmed"', '"Sajid Tech"', '"ORD-98421"', '"Karachi"', '"Toyota Defence Motors"',
-        '"42101-5829103-1"', '"Covered"', '"2026-10-14"', '"2026-10-20"', '"Installed"', '"Karachi Dispatch"',
+        '"42101-5829103-1"', '"Covered"', '"2026-10-14"', '"2026-10-20"', '"Continued"', '"Karachi Dispatch"',
         '"4G GPS installed behind dashboard."', '"TK-403 4G"', '"Active"'
       ].join(','),
       [
         '"BKL-772"', '"Chaudhry Rizwan Akram"', '"Honda"', '"Civic RS Turbo"', '"2024"', '"Meteoroid Gray"',
         '"+92 321 4455889"', '"Ch. Rizwan"', '"L15B7-551982"', '"FE1-1004829"', '"Adamjee Insurance"',
         '"2026-10-12"', '"Tariq Khan"', '"Rashid Ali"', '"ORD-98425"', '"Lahore"', '"Honda Point Gulberg"',
-        '"35202-8492011-3"', '"Inspection Pending"', '"2026-10-15"', '"2026-10-16"', '"In Progress"', '"Lahore Ops Hub"',
+        '"35202-8492011-3"', '"Inspection Pending"', '"2026-10-15"', '"2026-10-16"', '"Pending"', '"Lahore Ops Hub"',
         '"Fleet manager live tracking required."', '"Teltonika FMB920"', '"Testing"'
       ].join(',')
     ];
@@ -162,7 +161,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
         if (char === '"') {
           if (inQuotes && nextChar === '"') {
             currentVal += '"';
-            i++; // skip next quote
+            i++;
           } else {
             inQuotes = !inQuotes;
           }
@@ -195,9 +194,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
         return;
       }
 
-      // Check header row
       const headers = rows[0].map(h => h.trim().toLowerCase());
-      
       const newRecords: TrackerRecord[] = [];
       const timestamp = new Date().toISOString();
 
@@ -205,7 +202,6 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
         const row = rows[r];
         if (row.length === 0 || (row.length === 1 && !row[0])) continue;
 
-        // Map columns by position or header name
         const getVal = (index: number, headerKey: string) => {
           const headerIdx = headers.findIndex(h => h.includes(headerKey.toLowerCase()));
           if (headerIdx !== -1 && row[headerIdx] !== undefined) return row[headerIdx];
@@ -243,7 +239,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
           coordinatedBy: getVal(22, 'coordinated') || '',
           remarks: getVal(23, 'remarks') || '',
           unit: getVal(24, 'unit') || 'TK-403 4G',
-          trackerStatus: (getVal(25, 'tracker status') as any) || 'Pending Activation',
+          trackerStatus: (getVal(25, 'tracker status') as any) || 'Active',
           createdAt: timestamp,
           updatedAt: timestamp,
         };
@@ -287,8 +283,8 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
               <button
                 type="button"
                 onClick={() => setMode('export')}
-                className={`px-3 py-1 rounded-md transition-colors min-h-[32px] ${
-                  mode === 'export' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                className={`px-3 py-1 rounded-md transition-colors min-h-[32px] cursor-pointer ${
+                  mode === 'export' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Export CSV
@@ -297,8 +293,8 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setMode('import')}
-                  className={`px-3 py-1 rounded-md transition-colors min-h-[32px] ${
-                    mode === 'import' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  className={`px-3 py-1 rounded-md transition-colors min-h-[32px] cursor-pointer ${
+                    mode === 'import' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   Import CSV
@@ -316,7 +312,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 text-xs">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 text-xs">
           
           {/* EXPORT MODE */}
           {mode === 'export' && (
@@ -331,7 +327,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
               <div className="space-y-2 pt-2">
                 <label className="block font-semibold text-slate-700">Choose Export Scope:</label>
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                  <label className="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
                     <input
                       type="radio"
                       name="exportScope"
@@ -341,12 +337,12 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                     />
                     <div>
                       <span className="font-semibold text-slate-800">Current Filtered View ({visibleRecords.length} records)</span>
-                      <p className="text-slate-500 text-[11px]">Exports records currently displayed on your active screen.</p>
+                      <p className="text-slate-500 text-[10px] sm:text-[11px]">Exports records currently displayed on your active screen.</p>
                     </div>
                   </label>
 
                   {currentUser.role === 'admin' && (
-                    <label className="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                    <label className="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
                       <input
                         type="radio"
                         name="exportScope"
@@ -356,7 +352,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                       />
                       <div>
                         <span className="font-semibold text-slate-800">Complete Master Database ({records.length} records)</span>
-                        <p className="text-slate-500 text-[11px]">Exports all vehicle records across all sales persons.</p>
+                        <p className="text-slate-500 text-[10px] sm:text-[11px]">Exports all vehicle records across all sales persons.</p>
                       </div>
                     </label>
                   )}
@@ -367,7 +363,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                 <button
                   type="button"
                   onClick={handleDownloadTemplate}
-                  className="text-blue-600 hover:underline flex items-center justify-center sm:justify-start gap-1 py-1"
+                  className="text-blue-600 hover:underline flex items-center justify-center sm:justify-start gap-1 py-1 cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>Download Blank CSV Template</span>
@@ -376,7 +372,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                 <button
                   type="button"
                   onClick={handleExport}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 font-semibold flex items-center justify-center gap-1.5 shadow-xs min-h-[40px] cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-850 font-semibold flex items-center justify-center gap-1.5 shadow-2xs min-h-[40px] cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
                   <span>Download CSV File</span>
@@ -399,7 +395,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
               <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-slate-400 bg-slate-50/50">
                 <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                 <label className="cursor-pointer">
-                  <span className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-semibold text-slate-800 hover:bg-slate-50 shadow-2xs inline-block">
+                  <span className="px-3.5 py-2 bg-white border border-slate-300 rounded-lg font-semibold text-slate-800 hover:bg-slate-50 shadow-2xs inline-block cursor-pointer">
                     Select .csv File
                   </span>
                   <input
@@ -409,7 +405,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                     className="hidden"
                   />
                 </label>
-                <p className="text-[11px] text-slate-400 mt-2">
+                <p className="text-[10px] sm:text-[11px] text-slate-400 mt-2">
                   Supports UTF-8 CSV with columns: Reg No., Customer Name, Make, Model, Sales Person...
                 </p>
               </div>
@@ -470,7 +466,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Preview table (first 3 records) */}
+                  {/* Preview table */}
                   <div className="max-h-40 overflow-x-auto overflow-y-auto border border-slate-200 rounded-lg">
                     <table className="w-full text-left text-[11px]">
                       <thead className="bg-slate-100 font-semibold text-slate-700 sticky top-0">
@@ -510,7 +506,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                 <button
                   type="button"
                   onClick={handleDownloadTemplate}
-                  className="text-blue-600 hover:underline flex items-center justify-center sm:justify-start gap-1 py-1"
+                  className="text-blue-600 hover:underline flex items-center justify-center sm:justify-start gap-1 py-1 cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>Download Sample Template</span>
@@ -520,7 +516,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
                   type="button"
                   disabled={parsedPreview.length === 0}
                   onClick={handleImportSubmit}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 font-semibold flex items-center justify-center gap-1.5 shadow-xs min-h-[40px] cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-850 disabled:opacity-40 disabled:hover:bg-slate-900 font-semibold flex items-center justify-center gap-1.5 shadow-2xs min-h-[40px] cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Import {parsedPreview.length} Records</span>

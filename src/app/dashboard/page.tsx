@@ -16,7 +16,7 @@ import { AuditLogsView } from '@/components/AuditLogsView';
 import { FullScreenLoader } from '@/components/FullScreenLoader';
 import { AgentPermissionsModal } from '@/components/AgentPermissionsModal';
 import { TrackerRecord } from '@/types';
-import { ShieldCheck, User, LogIn, ArrowRight, Shield, Lock, LogOut } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export default function DashboardPage() {
     if (isHydrated && !isAuthenticated) router.replace('/login');
   }, [isHydrated, isAuthenticated, router]);
 
-  if (!isHydrated || !isAuthenticated) {
+  if (!isHydrated || !isAuthenticated || !currentUser) {
     return <FullScreenLoader />;
   }
 
@@ -66,9 +66,9 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 font-sans overflow-x-hidden">
       
-      {/* Top Navbar */}
+      {/* Top Navbar - Fully responsive for 320px+ */}
       <Navbar
         currentTab={currentTab}
         onTabChange={setCurrentTab}
@@ -77,56 +77,54 @@ export default function DashboardPage() {
         onOpenPermissionsModal={() => handleOpenPermissionsModal('global')}
       />
 
-      {/* Sales Person Access Notification Banner (Highlights RBAC isolation to user) */}
+      {/* Sales Person Access Notification Banner - Responsive flex wrapping */}
       {currentUser.role === 'user' && (
-        <div className="bg-blue-600 text-white px-3 sm:px-4 py-2.5 text-xs w-full">
-          <div className="w-full mx-auto flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="font-bold flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 shrink-0" />
-                Sales Rep View:
+        <div className="bg-blue-600 text-white px-2.5 sm:px-4 py-2 text-xs w-full shadow-sm">
+          <div className="w-full max-w-[100%] mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 leading-snug">
+              <span className="font-bold flex items-center gap-1 shrink-0">
+                <User className="w-3.5 h-3.5" />
+                Sales Rep:
               </span>
-              <span className="leading-tight">
-                Logged in as <strong>{currentUser.name}</strong>. Only records assigned to your User ID are visible.
+              <span>
+                <strong>{currentUser.name}</strong>. Assigned records visible.
               </span>
-              <span className="inline-block mt-1 sm:mt-0 bg-blue-700/80 px-2 py-0.5 rounded text-[11px] font-medium border border-blue-500/50">
-                {agentPermissions.canEditStatus ? '✓ Status' : '🔒 Status'} &middot;{' '}
-                {agentPermissions.canEditRemarks ? '✓ Notes' : '🔒 Notes'} &middot;{' '}
-                {agentPermissions.canEditVehicleSpecs ? '✓ Specs' : '🔒 Specs Locked'}
+              <span className="bg-blue-700/80 px-2 py-0.5 rounded text-[10px] font-medium border border-blue-500/50 shrink-0">
+                {agentPermissions?.canEditStatus ? '✓ Status' : '🔒 Status'} &middot;{' '}
+                {agentPermissions?.canEditRemarks ? '✓ Notes' : '🔒 Notes'}
               </span>
             </div>
             <button
               type="button"
               onClick={logout}
-              className="bg-white/15 hover:bg-white/25 active:bg-white/30 px-3 py-1.5 rounded-md font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[36px]"
-              title="Sign out of sales account to switch user or return to admin"
+              className="bg-white/15 hover:bg-white/25 active:bg-white/30 px-2.5 py-1 rounded-md font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0 min-h-[32px] text-xs self-end sm:self-auto"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-3 h-3" />
               <span>Sign Out</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Main View Area - Full Screen Portal Scaling */}
-      <main className="flex-1 w-full mx-auto px-2.5 sm:px-6 lg:px-8 py-3.5 sm:py-5">
+      {/* Main View Area - Optimized padding for ultra-small screens */}
+      <main className="flex-1 w-full max-w-full mx-auto px-2 sm:px-4 lg:px-8 py-2.5 sm:py-5 overflow-x-hidden">
         
         {currentTab === 'spreadsheet' && (
-          <div className="w-full space-y-4">
+          <div className="w-full space-y-3 sm:space-y-4">
             {/* Top KPI Metrics Strip */}
             <StatsOverview />
 
             {/* Comprehensive Multi-Filter Bar */}
             <FilterBar />
 
-            {/* High-Density 26-Column Record Table */}
+            {/* High-Density 26-Column Record Table with Horizontal Scroll for 320px */}
             <RecordTable
               onEditRecord={handleEditRecord}
               onPrintJobCard={(rec) => setJobCardRecord(rec)}
               onOpenPermissionsModal={() => handleOpenPermissionsModal('global')}
             />
 
-            {/* Floating Batch Action Toolbar (appears when checkboxes are ticked) */}
+            {/* Floating Batch Action Toolbar */}
             <BatchActionBar
               onExportSelected={() => handleOpenCSV('export')}
             />

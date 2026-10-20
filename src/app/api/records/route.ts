@@ -1,23 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadDB, saveDB } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
 
-export async function GET() {
-  return NextResponse.json(loadDB().records || []);
+export async function GET(req: NextRequest) {
+  const auth = verifyAuth(req);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const records = await prisma.trackerRecord.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        assignedToUser: {
+          select: { id: true, name: true, username: true },
+        },
+      },
+    });
+    return NextResponse.json(records);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
+  const auth = verifyAuth(req);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const r = await req.json();
-    const db = loadDB();
-    const newRecord = {
-      ...r,
-      id: r.id || 'rec-' + Math.random().toString(36).substring(2, 9),
-      statusChangedAt: r.statusChangedAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    db.records.unshift(newRecord);
-    saveDB(db);
-    return NextResponse.json(newRecord);
+    const body = await req.json();
+
+    const record = await prisma.$transaction(async (tx) => {
+      const created = await tx.trackerRecord.create({
+        data: {
+          ...body,
+          createdById: auth.id,
+          statusChangedBy: auth.username,
+          statusChangedByUserId: auth.id,
+          statusChangedAt: new Date(),
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'CREATE_RECORD',
+          details: `Created vehicle record for regNo: ${created.regNo}`,
+          actorId: auth.id,
+          actorName: auth.username,
+          recordId: created.id,
+          recordRegNo: created.regNo,
+        },
+      });
+
+      return created;
+    });
+
+    return NextResponse.json(record, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
