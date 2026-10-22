@@ -1,7 +1,7 @@
 {
   "name": "autotrack-emi-management",
   "private": true,
-  "version": "0.1.0",
+  "version": "2.0.0",
   "author": "Ahmed Saleem Shaikh",
   "scripts": {
     "dev": "next dev",

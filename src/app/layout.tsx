@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Providers } from './providers';
 import './globals.css';
 
-const description =
-  'Vehicle GPS tracker installation and sales CRM with role-based access control, master admin spreadsheet management, dynamic batch assignment, and sales rep workspaces.';
+const description = 'Vehicle GPS tracker installation and sales CRM with role-based access control, master admin spreadsheet management, dynamic batch assignment, and sales rep workspaces.';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -14,6 +13,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'AutoTrack EMI Management',
   description,
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/favicon.svg"
+  },
   openGraph: {
     title: 'AutoTrack EMI Management',
     description,

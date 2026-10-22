@@ -1,6 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+} from 'react';
 import {
   TrackerRecord,
   UserProfile,
@@ -11,6 +18,57 @@ import {
   PermissionPreset,
   LastStatusChange,
 } from '../types';
+
+// --------------------------------------------------
+// Extra types for Status Logs & Job Cards
+// --------------------------------------------------
+export interface StatusChangeLog {
+  id: string;
+  recordId: string;
+  previousStatus?: string | null;
+  newStatus: string;
+  changedByUserId?: string | null;
+  changedByName: string;
+  changedByUsername: string;
+  remarks?: string | null;
+  timestamp: string;
+  record?: {
+    id: string;
+    regNo: string;
+    customerName: string;
+  };
+  changedByUser?: {
+    id: string;
+    name: string;
+    username: string;
+  };
+}
+
+export interface JobCard {
+  id: string;
+  jobCardNo: string;
+  recordId: string;
+  jobType: string;
+  technicianName: string;
+  installationCity: string;
+  scheduledDate?: string | null;
+  completedDate?: string | null;
+  status: string;
+  odometerReading?: string | null;
+  imeiNumber?: string | null;
+  simNumber?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  record?: {
+    id: string;
+    regNo: string;
+    customerName: string;
+    make?: string;
+    model?: string;
+    contact1?: string;
+  };
+}
 
 interface AppContextType {
   currentUser: UserProfile;
@@ -25,6 +83,10 @@ interface AppContextType {
   agentPermissions: AgentPermissions;
   globalAgentPermissions: AgentPermissions;
   lastStatusChange: LastStatusChange | null;
+
+  // Status Logs & Job Cards
+  statusLogs: StatusChangeLog[];
+  jobCards: JobCard[];
 
   // Selection
   toggleSelectRecord: (id: string) => void;
@@ -42,7 +104,19 @@ interface AppContextType {
   addRecord: (record: Omit<TrackerRecord, 'id' | 'createdAt' | 'updatedAt'>) => void;
   deleteRecords: (recordIds: string[]) => void;
   batchUpdateStatus: (recordIds: string[], status: TrackerRecord['status']) => void;
-  batchUpdateTrackerStatus: (recordIds: string[], trackerStatus: TrackerRecord['trackerStatus']) => void;
+  batchUpdateTrackerStatus: (
+    recordIds: string[],
+    trackerStatus: TrackerRecord['trackerStatus']
+  ) => void;
+
+  // Status Logs
+  fetchStatusLogs: (recordId?: string) => Promise<void>;
+
+  // Job Cards
+  fetchJobCards: (filters?: { recordId?: string; status?: string }) => Promise<void>;
+  createJobCard: (data: Partial<JobCard> & { recordId: string }) => Promise<JobCard | null>;
+  updateJobCard: (id: string, updates: Partial<JobCard>) => Promise<JobCard | null>;
+  deleteJobCard: (id: string) => Promise<boolean>;
 
   // Agent Permissions Management (Admin control)
   updateAgentPermissions: (updates: Partial<AgentPermissions>, targetUserId?: string) => void;
@@ -67,7 +141,7 @@ interface AppContextType {
   factoryResetPortal: () => void;
 }
 
-// Bumped to v5 so old demo/seed data cached in browsers is ignored
+// Bumped version so old demo/seed data is ignored
 const STORAGE_KEYS = {
   RECORDS: 'autotrack_records_v5',
   USERS: 'autotrack_users_v5',
@@ -90,7 +164,7 @@ const initialFilterState: FilterState = {
   showroom: 'all',
 };
 
-// Empty placeholder (not seed data) so currentUser is never null before login
+// Empty placeholder so currentUser is never null before login
 const EMPTY_USER = {
   id: '',
   name: 'Guest',
@@ -101,7 +175,9 @@ const EMPTY_USER = {
   active: false,
 } as UserProfile;
 
-// Normalizes Prisma uppercase enums ('CONTINUED', 'IN_PROGRESS', 'ACTIVE') to UI strings
+// --------------------------------------------------
+// Normalization helpers (Prisma uppercase → UI strings)
+// --------------------------------------------------
 const normalizeStatusFromApi = (status?: string): TrackerRecord['status'] => {
   if (!status) return 'Pending';
   const map: Record<string, TrackerRecord['status']> = {
@@ -114,7 +190,9 @@ const normalizeStatusFromApi = (status?: string): TrackerRecord['status'] => {
   return map[status.toUpperCase()] || (status as TrackerRecord['status']);
 };
 
-const normalizeTrackerStatusFromApi = (ts?: string): TrackerRecord['trackerStatus'] => {
+const normalizeTrackerStatusFromApi = (
+  ts?: string
+): TrackerRecord['trackerStatus'] => {
   if (!ts) return 'Active';
   const map: Record<string, TrackerRecord['trackerStatus']> = {
     ACTIVE: 'Active',
@@ -131,6 +209,11 @@ const normalizeRecordFromApi = (r: any): TrackerRecord => ({
   ...r,
   status: normalizeStatusFromApi(r.status),
   trackerStatus: normalizeTrackerStatusFromApi(r.trackerStatus),
+  statusChangedAt: r.statusChangedAt
+    ? new Date(r.statusChangedAt).toISOString()
+    : undefined,
+  createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : undefined,
+  updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : undefined,
 });
 
 const normalizeUserFromApi = (u: any): UserProfile =>
@@ -141,22 +224,63 @@ const normalizeUserFromApi = (u: any): UserProfile =>
     customPermissions: u.permissions ?? u.customPermissions,
   }) as UserProfile;
 
+const normalizeStatusLogFromApi = (log: any): StatusChangeLog => ({
+  ...log,
+  previousStatus: log.previousStatus
+    ? normalizeStatusFromApi(log.previousStatus)
+    : null,
+  newStatus: normalizeStatusFromApi(log.newStatus),
+  timestamp: log.timestamp
+    ? new Date(log.timestamp).toISOString()
+    : new Date().toISOString(),
+});
+
+const normalizeJobCardFromApi = (jc: any): JobCard => ({
+  ...jc,
+  scheduledDate: jc.scheduledDate
+    ? new Date(jc.scheduledDate).toISOString()
+    : null,
+  completedDate: jc.completedDate
+    ? new Date(jc.completedDate).toISOString()
+    : null,
+  createdAt: jc.createdAt
+    ? new Date(jc.createdAt).toISOString()
+    : new Date().toISOString(),
+  updatedAt: jc.updatedAt
+    ? new Date(jc.updatedAt).toISOString()
+    : new Date().toISOString(),
+});
+
+// --------------------------------------------------
+// Context
+// --------------------------------------------------
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [isHydrated, setIsHydrated] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState('');
   const [records, setRecords] = useState<TrackerRecord[]>([]);
-  const [lastStatusChange, setLastStatusChange] = useState<LastStatusChange | null>(null);
+  const [lastStatusChange, setLastStatusChange] =
+    useState<LastStatusChange | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+
+  // New states
+  const [statusLogs, setStatusLogs] = useState<StatusChangeLog[]>([]);
+  const [jobCards, setJobCards] = useState<JobCard[]>([]);
 
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterState>(initialFilterState);
-  const [agentPermissions, setAgentPermissions] = useState<AgentPermissions>(DEFAULT_AGENT_PERMISSIONS);
+  const [agentPermissions, setAgentPermissions] = useState<AgentPermissions>(
+    DEFAULT_AGENT_PERMISSIONS
+  );
 
-  // Sync with backend API routes (database is the source of truth)
+  // --------------------------------------------------
+  // Sync from backend API
+  // --------------------------------------------------
   const syncFromApi = useCallback(async () => {
     try {
       const [meRes, usersRes, recordsRes, logsRes] = await Promise.allSettled([
@@ -166,7 +290,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fetch('/api/audit-logs', { credentials: 'include', cache: 'no-store' }),
       ]);
 
-      // 1. Users list
+      // Users
       if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
         const apiUsers = await usersRes.value.json();
         if (Array.isArray(apiUsers)) {
@@ -174,28 +298,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // 2. Current authenticated session
+      // Current session
       if (meRes.status === 'fulfilled') {
         if (meRes.value.ok) {
           const meData = await meRes.value.json();
           if (meData?.success && meData?.user) {
             const me = normalizeUserFromApi(meData.user);
-            setUsers(prev =>
-              prev.some(u => u.id === me.id)
-                ? prev.map(u => (u.id === me.id ? { ...u, ...me } : u))
+            setUsers((prev) =>
+              prev.some((u) => u.id === me.id)
+                ? prev.map((u) => (u.id === me.id ? { ...u, ...me } : u))
                 : [...prev, me]
             );
             setCurrentUserId(me.id);
             setIsAuthenticated(true);
           }
         } else if (meRes.value.status === 401) {
-          // Server says no valid session
           setIsAuthenticated(false);
           setCurrentUserId('');
         }
       }
 
-      // 3. Tracker Records
+      // Tracker Records
       if (recordsRes.status === 'fulfilled' && recordsRes.value.ok) {
         const apiRecords = await recordsRes.value.json();
         if (Array.isArray(apiRecords)) {
@@ -203,7 +326,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // 4. Audit Logs
+      // Audit Logs
       if (logsRes.status === 'fulfilled' && logsRes.value.ok) {
         const apiLogs = await logsRes.value.json();
         if (Array.isArray(apiLogs)) {
@@ -211,11 +334,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     } catch {
-      // Keep cached localStorage state if offline
+      // Keep localStorage state if offline
     }
   }, []);
 
-  // Load cached state from localStorage once after mount, then sync from API
+  // Load from localStorage once, then sync from API
   useEffect(() => {
     const read = <T,>(key: string): T | null => {
       try {
@@ -227,7 +350,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const savedUsers =
-      read<UserProfile[]>(STORAGE_KEYS.USERS)?.map(u =>
+      read<UserProfile[]>(STORAGE_KEYS.USERS)?.map((u) =>
         (u.role as string) === 'sales' ? { ...u, role: 'user' as const } : u
       ) ?? null;
     const savedRecords = read<TrackerRecord[]>(STORAGE_KEYS.RECORDS);
@@ -250,7 +373,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (savedLogs) setAuditLogs(savedLogs);
     if (savedPerms) setAgentPermissions(savedPerms);
 
-    if (savedUserId && savedUsers?.some(u => u.id === savedUserId) && savedAuth === true) {
+    if (
+      savedUserId &&
+      savedUsers?.some((u) => u.id === savedUserId) &&
+      savedAuth === true
+    ) {
       setCurrentUserId(savedUserId);
       setIsAuthenticated(true);
     } else {
@@ -261,8 +388,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setLastStatusChange(savedLast);
     } else {
       const latest = [...effectiveRecords]
-        .filter(r => r.statusChangedAt)
-        .sort((a, b) => new Date(b.statusChangedAt!).getTime() - new Date(a.statusChangedAt!).getTime())[0];
+        .filter((r) => r.statusChangedAt)
+        .sort(
+          (a, b) =>
+            new Date(b.statusChangedAt!).getTime() -
+            new Date(a.statusChangedAt!).getTime()
+        )[0];
       if (latest) {
         setLastStatusChange({
           recordId: latest.id,
@@ -284,7 +415,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Persist to localStorage after hydration
   useEffect(() => {
     if (isHydrated && lastStatusChange) {
-      localStorage.setItem(STORAGE_KEYS.LAST_STATUS_CHANGE, JSON.stringify(lastStatusChange));
+      localStorage.setItem(
+        STORAGE_KEYS.LAST_STATUS_CHANGE,
+        JSON.stringify(lastStatusChange)
+      );
     }
   }, [isHydrated, lastStatusChange]);
 
@@ -293,30 +427,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [isHydrated, users]);
 
   useEffect(() => {
-    if (isHydrated) localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, currentUserId);
+    if (isHydrated)
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, currentUserId);
   }, [isHydrated, currentUserId]);
 
   useEffect(() => {
-    if (isHydrated) localStorage.setItem(STORAGE_KEYS.AUTH_STATE, JSON.stringify(isAuthenticated));
+    if (isHydrated)
+      localStorage.setItem(STORAGE_KEYS.AUTH_STATE, JSON.stringify(isAuthenticated));
   }, [isHydrated, isAuthenticated]);
 
   useEffect(() => {
-    if (isHydrated) localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
+    if (isHydrated)
+      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
   }, [isHydrated, records]);
 
   useEffect(() => {
-    if (isHydrated) localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(auditLogs));
+    if (isHydrated)
+      localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(auditLogs));
   }, [isHydrated, auditLogs]);
 
   useEffect(() => {
-    if (isHydrated) localStorage.setItem(STORAGE_KEYS.PERMISSIONS, JSON.stringify(agentPermissions));
+    if (isHydrated)
+      localStorage.setItem(
+        STORAGE_KEYS.PERMISSIONS,
+        JSON.stringify(agentPermissions)
+      );
   }, [isHydrated, agentPermissions]);
 
   const currentUser = useMemo<UserProfile>(() => {
-    return users.find(u => u.id === currentUserId) || EMPTY_USER;
+    return users.find((u) => u.id === currentUserId) || EMPTY_USER;
   }, [users, currentUserId]);
 
-  // Appends audit log to local state AND posts to /api/audit-logs
+  // --------------------------------------------------
+  // Audit helper
+  // --------------------------------------------------
   const addAuditLog = useCallback(
     (action: string, details: string, regNo?: string) => {
       const newLog: AuditLogEntry = {
@@ -327,7 +471,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         details,
         recordRegNo: regNo,
       };
-      setAuditLogs(prev => [newLog, ...prev.slice(0, 99)]);
+      setAuditLogs((prev) => [newLog, ...prev.slice(0, 99)]);
 
       fetch('/api/audit-logs', {
         method: 'POST',
@@ -344,7 +488,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [currentUser.name]
   );
 
-  // Login: validated entirely by /api/auth/login (cookie session)
+  // --------------------------------------------------
+  // Auth
+  // --------------------------------------------------
   const login = async (
     usernameOrEmail: string,
     password: string
@@ -375,76 +521,89 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const normalizedUser = normalizeUserFromApi(data.user);
 
-      setUsers(previousUsers => {
+      setUsers((previousUsers) => {
         const existingIndex = previousUsers.findIndex(
-          existingUser =>
-            existingUser.id === normalizedUser.id ||
-            existingUser.username?.toLowerCase() === identifier ||
-            existingUser.email?.toLowerCase() === identifier
+          (u) =>
+            u.id === normalizedUser.id ||
+            u.username?.toLowerCase() === identifier ||
+            u.email?.toLowerCase() === identifier
         );
 
-        if (existingIndex === -1) {
-          return [...previousUsers, normalizedUser];
-        }
+        if (existingIndex === -1) return [...previousUsers, normalizedUser];
 
-        return previousUsers.map((existingUser, index) =>
-          index === existingIndex ? { ...existingUser, ...normalizedUser } : existingUser
+        return previousUsers.map((u, i) =>
+          i === existingIndex ? { ...u, ...normalizedUser } : u
         );
       });
 
       setCurrentUserId(normalizedUser.id);
       setIsAuthenticated(true);
       setSelectedRecordIds([]);
-      setFilters(previousFilters => ({ ...previousFilters, salesPerson: 'all' }));
+      setFilters((prev) => ({ ...prev, salesPerson: 'all' }));
 
       void syncFromApi();
 
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, message: 'Cannot connect to the server. Please try again.' };
+      return {
+        success: false,
+        message: 'Cannot connect to the server. Please try again.',
+      };
     }
   };
 
-  // Logout
   const logout = () => {
     setIsAuthenticated(false);
     setCurrentUserId('');
     setSelectedRecordIds([]);
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {});
   };
 
-  // Switch User
   const switchUser = (userId: string) => {
-    const user = users.find(u => u.id === userId);
+    const user = users.find((u) => u.id === userId);
     if (user) {
       setCurrentUserId(userId);
       setIsAuthenticated(true);
       setSelectedRecordIds([]);
-      setFilters(prev => ({ ...prev, salesPerson: 'all' }));
-      addAuditLog('User Switched', `Active session switched to ${user.name} (${user.role.toUpperCase()})`);
+      setFilters((prev) => ({ ...prev, salesPerson: 'all' }));
+      addAuditLog(
+        'User Switched',
+        `Active session switched to ${user.name} (${user.role.toUpperCase()})`
+      );
 
       if (user.password) {
         fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ username: user.username, password: user.password }),
+          body: JSON.stringify({
+            username: user.username,
+            password: user.password,
+          }),
         }).catch(() => {});
       }
     }
   };
 
-  // Add new User (Optimistic update + POST /api/users)
+  // --------------------------------------------------
+  // User management
+  // --------------------------------------------------
   const addUser = (userData: Omit<UserProfile, 'id'>) => {
-    const id = `user-${Date.now().toString(36)}`;
+    const tempId = `user-${Date.now().toString(36)}`;
     const newUser: UserProfile = {
       ...userData,
-      id,
+      id: tempId,
       password: userData.password || '123',
     };
-    setUsers(prev => [...prev, newUser]);
-    addAuditLog('User Created', `Created user account for ${newUser.name} (@${newUser.username})`);
+    setUsers((prev) => [...prev, newUser]);
+    addAuditLog(
+      'User Created',
+      `Created user account for ${newUser.name} (@${newUser.username})`
+    );
 
     fetch('/api/users', {
       method: 'POST',
@@ -461,68 +620,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         avatarColor: newUser.avatarColor,
       }),
     })
-      .then(res => (res.ok ? res.json() : null))
-      .then(data => {
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
         if (data?.success && data?.user?.id) {
-          setUsers(prev => prev.map(u => (u.id === id ? { ...u, id: data.user.id } : u)));
+          setUsers((prev) =>
+            prev.map((u) => (u.id === tempId ? { ...u, id: data.user.id } : u))
+          );
         }
       })
       .catch(() => {});
   };
 
   const updateUserPassword = (userId: string, newPass: string) => {
-    setUsers(prev => prev.map(u => (u.id === userId ? { ...u, password: newPass } : u)));
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, password: newPass } : u))
+    );
     addAuditLog('Password Changed', `Updated password for user ID ${userId}`);
   };
 
   const toggleUserActive = (userId: string) => {
-    setUsers(prev => prev.map(u => (u.id === userId ? { ...u, active: !u.active } : u)));
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, active: !u.active } : u))
+    );
   };
 
   const deleteUser = (userId: string) => {
-    const targetUser = users.find(u => u.id === userId);
-    // Never delete the last remaining admin
-    if (targetUser?.role === 'admin' && users.filter(u => u.role === 'admin').length <= 1) return;
+    const targetUser = users.find((u) => u.id === userId);
+    if (
+      targetUser?.role === 'admin' &&
+      users.filter((u) => u.role === 'admin').length <= 1
+    )
+      return;
 
-    setUsers(prev => prev.filter(u => u.id !== userId));
-    setRecords(prev =>
-      prev.map(r =>
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    setRecords((prev) =>
+      prev.map((r) =>
         r.assignedToUserId === userId
-          ? { ...r, assignedToUserId: undefined, coordinatedBy: 'Unassigned', updatedAt: new Date().toISOString() }
+          ? {
+              ...r,
+              assignedToUserId: undefined,
+              coordinatedBy: 'Unassigned',
+              updatedAt: new Date().toISOString(),
+            }
           : r
       )
     );
-    addAuditLog('User Deleted', `Deleted user account for ${targetUser?.name || userId}`);
+    addAuditLog(
+      'User Deleted',
+      `Deleted user account for ${targetUser?.name || userId}`
+    );
     if (currentUserId === userId) {
       setCurrentUserId('');
       setIsAuthenticated(false);
     }
   };
 
-  // Checkbox selection
+  // --------------------------------------------------
+  // Selection
+  // --------------------------------------------------
   const toggleSelectRecord = (id: string) => {
-    setSelectedRecordIds(prev => (prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]));
+    setSelectedRecordIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
 
   const selectAllRecords = (select: boolean) => {
-    if (select) {
-      setSelectedRecordIds(visibleRecords.map(r => r.id));
-    } else {
-      setSelectedRecordIds([]);
-    }
+    setSelectedRecordIds(select ? visibleRecords.map((r) => r.id) : []);
   };
 
-  const clearSelection = () => {
-    setSelectedRecordIds([]);
+  const clearSelection = () => setSelectedRecordIds([]);
+
+  // --------------------------------------------------
+  // Filters
+  // --------------------------------------------------
+  const setFilter = <K extends keyof FilterState>(
+    key: K,
+    value: FilterState[K]
+  ) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  const setFilter = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const resetFilters = () => {
-    setFilters(initialFilterState);
-  };
+  const resetFilters = () => setFilters(initialFilterState);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -538,36 +716,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return count;
   }, [filters]);
 
-  // Strict Role-Based Access Isolation & Filtering
+  // --------------------------------------------------
+  // Visible records
+  // --------------------------------------------------
   const visibleRecords = useMemo(() => {
     let list = records;
 
-    // 1. Role-based isolation
     if (currentUser.role === 'user') {
       list = list.filter(
-        r =>
+        (r) =>
           r.assignedToUserId === currentUser.id ||
-          r.salesPerson.trim().toLowerCase() === currentUser.name.trim().toLowerCase()
+          r.salesPerson.trim().toLowerCase() ===
+            currentUser.name.trim().toLowerCase()
       );
-    } else {
-      if (filters.salesPerson !== 'all') {
-        if (filters.salesPerson === 'unassigned') {
-          list = list.filter(r => !r.assignedToUserId || r.salesPerson.toLowerCase() === 'unassigned');
-        } else {
-          list = list.filter(
-            r =>
-              r.assignedToUserId === filters.salesPerson ||
-              r.salesPerson.toLowerCase() === filters.salesPerson.toLowerCase()
-          );
-        }
+    } else if (filters.salesPerson !== 'all') {
+      if (filters.salesPerson === 'unassigned') {
+        list = list.filter(
+          (r) =>
+            !r.assignedToUserId ||
+            r.salesPerson.toLowerCase() === 'unassigned'
+        );
+      } else {
+        list = list.filter(
+          (r) =>
+            r.assignedToUserId === filters.salesPerson ||
+            r.salesPerson.toLowerCase() === filters.salesPerson.toLowerCase()
+        );
       }
     }
 
-    // 2. Search query
     if (filters.search.trim()) {
       const q = filters.search.trim().toLowerCase();
       list = list.filter(
-        r =>
+        (r) =>
           r.regNo.toLowerCase().includes(q) ||
           r.customerName.toLowerCase().includes(q) ||
           r.contact1.toLowerCase().includes(q) ||
@@ -583,36 +764,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
-    // 3. Status filter
     if (filters.status !== 'all') {
-      list = list.filter(r => r.status === filters.status);
+      list = list.filter((r) => r.status === filters.status);
     }
-
-    // 4. Tracker status filter
     if (filters.trackerStatus !== 'all') {
-      list = list.filter(r => r.trackerStatus === filters.trackerStatus);
+      list = list.filter((r) => r.trackerStatus === filters.trackerStatus);
     }
-
-    // 5. Insurance status filter
     if (filters.insStatus !== 'all') {
-      list = list.filter(r => r.insStatus.toLowerCase() === filters.insStatus.toLowerCase());
+      list = list.filter(
+        (r) => r.insStatus.toLowerCase() === filters.insStatus.toLowerCase()
+      );
     }
-
-    // 6. City filter
     if (filters.instCity !== 'all') {
-      list = list.filter(r => r.instCity.toLowerCase() === filters.instCity.toLowerCase());
+      list = list.filter(
+        (r) => r.instCity.toLowerCase() === filters.instCity.toLowerCase()
+      );
     }
-
-    // 7. Showroom filter
     if (filters.showroom !== 'all') {
-      list = list.filter(r => r.showroom.toLowerCase() === filters.showroom.toLowerCase());
+      list = list.filter(
+        (r) => r.showroom.toLowerCase() === filters.showroom.toLowerCase()
+      );
     }
 
-    // 8. Due date filter & Overdue logic
     const today = new Date().toISOString().split('T')[0];
     if (filters.dueDatePreset === 'overdue') {
       list = list.filter(
-        r =>
+        (r) =>
           r.dueDate &&
           r.dueDate < today &&
           r.status !== 'Continued' &&
@@ -620,36 +797,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           r.status !== 'Removal'
       );
     } else if (filters.dueDatePreset === 'today') {
-      list = list.filter(r => r.dueDate === today);
+      list = list.filter((r) => r.dueDate === today);
     } else if (filters.dueDatePreset === 'next_7_days') {
       const nextWeek = new Date();
       nextWeek.setDate(nextWeek.getDate() + 7);
       const nextWeekStr = nextWeek.toISOString().split('T')[0];
-      list = list.filter(r => r.dueDate && r.dueDate >= today && r.dueDate <= nextWeekStr);
+      list = list.filter(
+        (r) => r.dueDate && r.dueDate >= today && r.dueDate <= nextWeekStr
+      );
     } else if (filters.dueDatePreset === 'has_due_date') {
-      list = list.filter(r => !!r.dueDate);
+      list = list.filter((r) => !!r.dueDate);
     } else if (filters.dueDatePreset === 'no_due_date') {
-      list = list.filter(r => !r.dueDate);
+      list = list.filter((r) => !r.dueDate);
     }
 
-    // 9. Installation date preset
     if (filters.instDatePreset === 'today') {
-      list = list.filter(r => r.dateOfInstallation === today);
+      list = list.filter((r) => r.dateOfInstallation === today);
     } else if (filters.instDatePreset === 'this_week') {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
       const oneWeekAgoStr = oneWeekAgo.toISOString().split('T')[0];
-      list = list.filter(r => r.dateOfInstallation && r.dateOfInstallation >= oneWeekAgoStr);
+      list = list.filter(
+        (r) =>
+          r.dateOfInstallation && r.dateOfInstallation >= oneWeekAgoStr
+      );
     } else if (filters.instDatePreset === 'this_month') {
       const currentMonth = today.substring(0, 7);
-      list = list.filter(r => r.dateOfInstallation && r.dateOfInstallation.startsWith(currentMonth));
+      list = list.filter(
+        (r) =>
+          r.dateOfInstallation &&
+          r.dateOfInstallation.startsWith(currentMonth)
+      );
     }
 
     return list;
   }, [records, currentUser, filters]);
 
-  // Batch Assignment (Optimistic + PUT /api/records/[id])
-  const assignRecords = (recordIds: string[], targetUserId: string, targetUserName: string) => {
+  // --------------------------------------------------
+  // Record mutations
+  // --------------------------------------------------
+  const assignRecords = (
+    recordIds: string[],
+    targetUserId: string,
+    targetUserName: string
+  ) => {
     if (recordIds.length === 0) return;
 
     const isUnassign = targetUserId === 'unassigned';
@@ -657,21 +848,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const assignedId = isUnassign ? undefined : targetUserId;
     const now = new Date().toISOString();
 
-    setRecords(prev =>
-      prev.map(r => {
-        if (recordIds.includes(r.id)) {
-          return {
-            ...r,
-            assignedToUserId: assignedId,
-            salesPerson: assignedName,
-            updatedAt: now,
-          };
-        }
-        return r;
-      })
+    setRecords((prev) =>
+      prev.map((r) =>
+        recordIds.includes(r.id)
+          ? {
+              ...r,
+              assignedToUserId: assignedId,
+              salesPerson: assignedName,
+              updatedAt: now,
+            }
+          : r
+      )
     );
 
-    recordIds.forEach(id => {
+    recordIds.forEach((id) => {
       fetch(`/api/records/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -687,16 +877,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isUnassign ? 'Batch Unassigned' : 'Batch Assigned',
       `Assigned ${recordIds.length} vehicle record(s) to ${assignedName}.`
     );
-
     clearSelection();
   };
 
-  // Update single record (Optimistic + PUT /api/records/[id])
   const updateRecord = (id: string, updates: Partial<TrackerRecord>) => {
-    const existingRec = records.find(r => r.id === id);
+    const existingRec = records.find((r) => r.id === id);
     const enrichedUpdates: Partial<TrackerRecord> = { ...updates };
 
-    if (updates.status && (!existingRec || updates.status !== existingRec.status)) {
+    if (
+      updates.status &&
+      (!existingRec || updates.status !== existingRec.status)
+    ) {
       const now = new Date().toISOString();
       const actorUsername = currentUser.username || currentUser.name;
       const actorUserId = currentUser.id;
@@ -708,7 +899,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrichedUpdates.statusChangedBy = actorUsername;
       }
       enrichedUpdates.statusChangedByUserId = actorUserId;
-      enrichedUpdates.statusChangedRecordId = id;
 
       setLastStatusChange({
         recordId: id,
@@ -724,22 +914,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       addAuditLog(
         'Status Changed',
-        `Status changed to "${updates.status}" for Record ID: ${id} (${existingRec?.regNo || ''}) by User ID: ${actorUserId} (@${actorUsername})`,
+        `Status changed to "${updates.status}" for Record ID: ${id} (${
+          existingRec?.regNo || ''
+        }) by User ID: ${actorUserId} (@${actorUsername})`,
         existingRec?.regNo
       );
     }
 
-    setRecords(prev =>
-      prev.map(r => {
-        if (r.id === id) {
-          return {
-            ...r,
-            ...enrichedUpdates,
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return r;
-      })
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              ...enrichedUpdates,
+              updatedAt: new Date().toISOString(),
+            }
+          : r
+      )
     );
 
     fetch(`/api/records/${id}`, {
@@ -747,43 +938,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify(enrichedUpdates),
-    }).catch(() => {});
+    }).catch((err) => console.error('updateRecord failed', err));
 
-    const rec = records.find(r => r.id === id);
-    if (!updates.status || (existingRec && updates.status === existingRec.status)) {
-      addAuditLog('Record Updated', `Updated fields on ${rec?.regNo || id}`, rec?.regNo);
+    if (
+      !updates.status ||
+      (existingRec && updates.status === existingRec.status)
+    ) {
+      const rec = records.find((r) => r.id === id);
+      addAuditLog(
+        'Record Updated',
+        `Updated fields on ${rec?.regNo || id}`,
+        rec?.regNo
+      );
     }
   };
 
-  // Add new record (Optimistic + POST /api/records)
-  const addRecord = (recordData: Omit<TrackerRecord, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newId = `rec-${Date.now()}`;
+  const addRecord = (
+    recordData: Omit<TrackerRecord, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
+    const tempId = `rec-${Date.now()}`;
     const timestamp = new Date().toISOString();
     const actorUsername = currentUser.username || currentUser.name;
     const actorUserId = currentUser.id;
 
-    const salesPerson = currentUser.role === 'user' ? currentUser.name : recordData.salesPerson;
-    const assignedToUserId = currentUser.role === 'user' ? currentUser.id : recordData.assignedToUserId;
+    const salesPerson =
+      currentUser.role === 'user' ? currentUser.name : recordData.salesPerson;
+    const assignedToUserId =
+      currentUser.role === 'user' ? currentUser.id : recordData.assignedToUserId;
 
     const newRecord: TrackerRecord = {
       ...recordData,
-      id: newId,
+      id: tempId,
       salesPerson: salesPerson || 'Unassigned',
       assignedToUserId,
       statusChangedAt: recordData.statusChangedAt || timestamp,
       statusChangedBy: recordData.statusChangedBy || actorUsername,
       statusChangedByUserId: actorUserId,
-      statusChangedRecordId: newId,
       createdAt: timestamp,
       updatedAt: timestamp,
-      createdBy: currentUser.name,
     };
 
-    setRecords(prev => [newRecord, ...prev]);
+    setRecords((prev) => [newRecord, ...prev]);
 
     if (newRecord.status) {
       setLastStatusChange({
-        recordId: newId,
+        recordId: tempId,
         regNo: newRecord.regNo,
         customerName: newRecord.customerName,
         newStatus: newRecord.status,
@@ -800,13 +999,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       credentials: 'include',
       body: JSON.stringify(newRecord),
     })
-      .then(res => (res.ok ? res.json() : null))
-      .then(saved => {
-        if (saved?.id && saved.id !== newId) {
-          setRecords(prev => prev.map(r => (r.id === newId ? normalizeRecordFromApi(saved) : r)));
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error('Failed to save record:', err);
+          return null;
+        }
+        return res.json();
+      })
+      .then((saved) => {
+        if (saved?.id) {
+          setRecords((prev) =>
+            prev.map((r) =>
+              r.id === tempId ? normalizeRecordFromApi(saved) : r
+            )
+          );
         }
       })
-      .catch(() => {});
+      .catch((e) => console.error(e));
 
     addAuditLog(
       'New Record Added',
@@ -815,13 +1025,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Delete records (Optimistic + DELETE /api/records/[id])
   const deleteRecords = (recordIds: string[]) => {
     if (recordIds.length === 0) return;
-    setRecords(prev => prev.filter(r => !recordIds.includes(r.id)));
-    setSelectedRecordIds(prev => prev.filter(id => !recordIds.includes(id)));
 
-    recordIds.forEach(id => {
+    setRecords((prev) => prev.filter((r) => !recordIds.includes(r.id)));
+    setSelectedRecordIds((prev) =>
+      prev.filter((id) => !recordIds.includes(id))
+    );
+
+    recordIds.forEach((id) => {
       fetch(`/api/records/${id}`, {
         method: 'DELETE',
         credentials: 'include',
@@ -831,15 +1043,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addAuditLog('Records Deleted', `Deleted ${recordIds.length} record(s)`);
   };
 
-  // Batch update status (Optimistic + PUT /api/records/[id])
-  const batchUpdateStatus = (recordIds: string[], status: TrackerRecord['status']) => {
+  const batchUpdateStatus = (
+    recordIds: string[],
+    status: TrackerRecord['status']
+  ) => {
     if (recordIds.length === 0) return;
     const now = new Date().toISOString();
     const actorUsername = currentUser.username || currentUser.name;
     const actorUserId = currentUser.id;
 
-    setRecords(prev =>
-      prev.map(r =>
+    setRecords((prev) =>
+      prev.map((r) =>
         recordIds.includes(r.id)
           ? {
               ...r,
@@ -847,14 +1061,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               statusChangedAt: now,
               statusChangedBy: actorUsername,
               statusChangedByUserId: actorUserId,
-              statusChangedRecordId: r.id,
               updatedAt: now,
             }
           : r
       )
     );
 
-    recordIds.forEach(id => {
+    recordIds.forEach((id) => {
       fetch(`/api/records/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -868,35 +1081,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }).catch(() => {});
     });
 
-    const affectedRecs = records.filter(r => recordIds.includes(r.id));
-    const firstRec = affectedRecs[0];
+    const affected = records.filter((r) => recordIds.includes(r.id));
+    const first = affected[0];
     setLastStatusChange({
       recordId: recordIds.join(', '),
-      regNo: firstRec
-        ? `${firstRec.regNo}${recordIds.length > 1 ? ` (+${recordIds.length - 1} more)` : ''}`
+      regNo: first
+        ? `${first.regNo}${
+            recordIds.length > 1 ? ` (+${recordIds.length - 1} more)` : ''
+          }`
         : recordIds.join(', '),
-      customerName: firstRec?.customerName || '',
+      customerName: first?.customerName || '',
       newStatus: status,
       changedByUserId: actorUserId,
       changedByUsername: actorUsername,
       changedByName: currentUser.name,
       timestamp: now,
     });
+
     addAuditLog(
       'Batch Status Updated',
-      `Updated status to "${status}" for ${recordIds.length} record ID(s): [${recordIds.join(', ')}] by User ID: ${actorUserId} (@${actorUsername})`
+      `Updated status to "${status}" for ${recordIds.length} record(s)`
     );
   };
 
-  // Batch update tracker status (Optimistic + PUT /api/records/[id])
-  const batchUpdateTrackerStatus = (recordIds: string[], trackerStatus: TrackerRecord['trackerStatus']) => {
+  const batchUpdateTrackerStatus = (
+    recordIds: string[],
+    trackerStatus: TrackerRecord['trackerStatus']
+  ) => {
     if (recordIds.length === 0) return;
     const now = new Date().toISOString();
-    setRecords(prev =>
-      prev.map(r => (recordIds.includes(r.id) ? { ...r, trackerStatus, updatedAt: now } : r))
+
+    setRecords((prev) =>
+      prev.map((r) =>
+        recordIds.includes(r.id)
+          ? { ...r, trackerStatus, updatedAt: now }
+          : r
+      )
     );
 
-    recordIds.forEach(id => {
+    recordIds.forEach((id) => {
       fetch(`/api/records/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -905,18 +1128,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }).catch(() => {});
     });
 
-    addAuditLog('Batch Tracker Status Updated', `Updated tracker status to "${trackerStatus}" for ${recordIds.length} record(s)`);
+    addAuditLog(
+      'Batch Tracker Status Updated',
+      `Updated tracker status to "${trackerStatus}" for ${recordIds.length} record(s)`
+    );
   };
 
-  // Import records
-  const importRecords = (newRecords: TrackerRecord[], mode: 'append' | 'replace') => {
+  const importRecords = (
+    newRecords: TrackerRecord[],
+    mode: 'append' | 'replace'
+  ) => {
     if (mode === 'replace') {
       setRecords(newRecords);
     } else {
-      setRecords(prev => [...newRecords, ...prev]);
+      setRecords((prev) => [...newRecords, ...prev]);
     }
 
-    newRecords.forEach(rec => {
+    newRecords.forEach((rec) => {
       fetch('/api/records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -925,15 +1153,176 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }).catch(() => {});
     });
 
-    addAuditLog('Records Imported', `Imported ${newRecords.length} records (${mode} mode)`);
+    addAuditLog(
+      'Records Imported',
+      `Imported ${newRecords.length} records (${mode} mode)`
+    );
     clearSelection();
   };
 
-  // Compute effective permissions for any user
+  // --------------------------------------------------
+  // Status Logs
+  // --------------------------------------------------
+  const fetchStatusLogs = useCallback(async (recordId?: string) => {
+    try {
+      const url = recordId
+        ? `/api/status-logs?recordId=${recordId}&limit=100`
+        : '/api/status-logs?limit=100';
+
+      const res = await fetch(url, {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+
+      if (!res.ok) return;
+
+      const json = await res.json();
+      const logs = Array.isArray(json.data)
+        ? json.data.map(normalizeStatusLogFromApi)
+        : Array.isArray(json)
+        ? json.map(normalizeStatusLogFromApi)
+        : [];
+
+      setStatusLogs(logs);
+    } catch (err) {
+      console.error('fetchStatusLogs error:', err);
+    }
+  }, []);
+
+  // --------------------------------------------------
+  // Job Cards
+  // --------------------------------------------------
+  const fetchJobCards = useCallback(
+    async (opts?: { recordId?: string; status?: string }) => {
+      try {
+        const params = new URLSearchParams();
+        if (opts?.recordId) params.set('recordId', opts.recordId);
+        if (opts?.status) params.set('status', opts.status);
+        params.set('limit', '100');
+
+        const res = await fetch(`/api/job-cards?${params.toString()}`, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+
+        if (!res.ok) return;
+
+        const json = await res.json();
+        const cards = Array.isArray(json.data)
+          ? json.data.map(normalizeJobCardFromApi)
+          : Array.isArray(json)
+          ? json.map(normalizeJobCardFromApi)
+          : [];
+
+        setJobCards(cards);
+      } catch (err) {
+        console.error('fetchJobCards error:', err);
+      }
+    },
+    []
+  );
+
+  const createJobCard = useCallback(
+    async (
+      data: Partial<JobCard> & { recordId: string }
+    ): Promise<JobCard | null> => {
+      try {
+        const res = await fetch('/api/job-cards', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(data),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error('createJobCard failed:', err);
+          return null;
+        }
+
+        const created = normalizeJobCardFromApi(await res.json());
+        setJobCards((prev) => [created, ...prev]);
+
+        addAuditLog(
+          'Job Card Created',
+          `Created job card ${created.jobCardNo}`,
+          created.record?.regNo
+        );
+
+        return created;
+      } catch (err) {
+        console.error('createJobCard error:', err);
+        return null;
+      }
+    },
+    [addAuditLog]
+  );
+
+  const updateJobCard = useCallback(
+    async (id: string, updates: Partial<JobCard>): Promise<JobCard | null> => {
+      try {
+        const res = await fetch(`/api/job-cards/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updates),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error('updateJobCard failed:', err);
+          return null;
+        }
+
+        const updated = normalizeJobCardFromApi(await res.json());
+        setJobCards((prev) =>
+          prev.map((jc) => (jc.id === id ? updated : jc))
+        );
+
+        addAuditLog(
+          'Job Card Updated',
+          `Updated job card ${updated.jobCardNo}`,
+          updated.record?.regNo
+        );
+
+        return updated;
+      } catch (err) {
+        console.error('updateJobCard error:', err);
+        return null;
+      }
+    },
+    [addAuditLog]
+  );
+
+  const deleteJobCard = useCallback(
+    async (id: string): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/job-cards/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+
+        if (!res.ok) return false;
+
+        setJobCards((prev) => prev.filter((jc) => jc.id !== id));
+        addAuditLog('Job Card Deleted', `Deleted job card ID: ${id}`);
+        return true;
+      } catch (err) {
+        console.error('deleteJobCard error:', err);
+        return false;
+      }
+    },
+    [addAuditLog]
+  );
+
+  // --------------------------------------------------
+  // Permissions
+  // --------------------------------------------------
   const getUserEffectivePermissions = useCallback(
     (userId: string): AgentPermissions => {
-      const target = users.find(u => u.id === userId);
+      const target = users.find((u) => u.id === userId);
       if (!target) return agentPermissions;
+
       if (target.role === 'admin') {
         return {
           canEditStatus: true,
@@ -952,6 +1341,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           canReassignSalesPerson: true,
         };
       }
+
       if (target.customPermissions) {
         return { ...agentPermissions, ...target.customPermissions };
       }
@@ -960,15 +1350,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [users, agentPermissions]
   );
 
-  const effectivePermissions = useMemo<AgentPermissions>(() => {
-    return getUserEffectivePermissions(currentUser.id);
-  }, [currentUser.id, getUserEffectivePermissions]);
+  const effectivePermissions = useMemo(
+    () => getUserEffectivePermissions(currentUser.id),
+    [currentUser.id, getUserEffectivePermissions]
+  );
 
-  // Agent Permissions Handlers
-  const updateAgentPermissions = (updates: Partial<AgentPermissions>, targetUserId?: string) => {
+  const updateAgentPermissions = (
+    updates: Partial<AgentPermissions>,
+    targetUserId?: string
+  ) => {
     if (targetUserId && targetUserId !== 'global') {
-      setUsers(prev =>
-        prev.map(u => {
+      setUsers((prev) =>
+        prev.map((u) => {
           if (u.id === targetUserId) {
             const currentCustom = u.customPermissions || {};
             return {
@@ -979,20 +1372,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return u;
         })
       );
-      const targetUser = users.find(u => u.id === targetUserId);
+      const targetUser = users.find((u) => u.id === targetUserId);
       addAuditLog(
         'Agent Permissions Updated',
-        `Admin modified custom edit permissions for agent ${targetUser?.name || targetUserId}.`
+        `Admin modified custom edit permissions for agent ${
+          targetUser?.name || targetUserId
+        }.`
       );
     } else {
-      setAgentPermissions(prev => ({ ...prev, ...updates }));
-      addAuditLog('Global Permissions Updated', `Admin modified global edit permissions for all sales agents.`);
+      setAgentPermissions((prev) => ({ ...prev, ...updates }));
+      addAuditLog(
+        'Global Permissions Updated',
+        'Admin modified global edit permissions for all sales agents.'
+      );
     }
   };
 
   const clearUserCustomPermissions = (userId: string) => {
-    setUsers(prev =>
-      prev.map(u => {
+    setUsers((prev) =>
+      prev.map((u) => {
         if (u.id === userId) {
           const { customPermissions: _, ...rest } = u;
           return rest;
@@ -1000,8 +1398,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return u;
       })
     );
-    const targetUser = users.find(u => u.id === userId);
-    addAuditLog('Agent Permissions Reset', `Reverted agent ${targetUser?.name || userId} to global policy.`);
+    const targetUser = users.find((u) => u.id === userId);
+    addAuditLog(
+      'Agent Permissions Reset',
+      `Reverted agent ${targetUser?.name || userId} to global policy.`
+    );
   };
 
   const getPresetPermissions = (preset: PermissionPreset): AgentPermissions => {
@@ -1074,45 +1475,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           canDeleteRecords: false,
           canReassignSalesPerson: false,
         };
+      default:
+        return DEFAULT_AGENT_PERMISSIONS;
     }
   };
 
-  const resetAgentPermissionsToPreset = (preset: PermissionPreset, targetUserId?: string) => {
+  const resetAgentPermissionsToPreset = (
+    preset: PermissionPreset,
+    targetUserId?: string
+  ) => {
     const newPerms = getPresetPermissions(preset);
     if (targetUserId && targetUserId !== 'global') {
-      setUsers(prev =>
-        prev.map(u => {
-          if (u.id === targetUserId) {
-            return {
-              ...u,
-              customPermissions: newPerms,
-            };
-          }
-          return u;
-        })
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === targetUserId
+            ? { ...u, customPermissions: newPerms }
+            : u
+        )
       );
-      const targetUser = users.find(u => u.id === targetUserId);
+      const targetUser = users.find((u) => u.id === targetUserId);
       addAuditLog(
         'Agent Preset Applied',
-        `Admin applied "${preset.toUpperCase()}" preset to agent ${targetUser?.name || targetUserId}.`
+        `Admin applied "${preset.toUpperCase()}" preset to agent ${
+          targetUser?.name || targetUserId
+        }.`
       );
     } else {
       setAgentPermissions(newPerms);
-      addAuditLog('Global Permissions Preset Applied', `Admin set global agent permissions to "${preset.toUpperCase()}" preset.`);
+      addAuditLog(
+        'Global Permissions Preset Applied',
+        `Admin set global agent permissions to "${preset.toUpperCase()}" preset.`
+      );
     }
   };
 
-  // Factory Reset / Wipe Portal (local cache only; database is untouched)
+  // --------------------------------------------------
+  // Factory reset
+  // --------------------------------------------------
   const factoryResetPortal = () => {
     try {
       localStorage.clear();
     } catch {
       // ignore
     }
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {});
+
     setRecords([]);
     setUsers([]);
     setAuditLogs([]);
+    setStatusLogs([]);
+    setJobCards([]);
     setLastStatusChange(null);
     setAgentPermissions(DEFAULT_AGENT_PERMISSIONS);
     setCurrentUserId('');
@@ -1122,6 +1537,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.location.reload();
   };
 
+  // --------------------------------------------------
+  // Provider
+  // --------------------------------------------------
   return (
     <AppContext.Provider
       value={{
@@ -1137,6 +1555,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         agentPermissions: effectivePermissions,
         globalAgentPermissions: agentPermissions,
         lastStatusChange,
+
+        // New
+        statusLogs,
+        jobCards,
+
         toggleSelectRecord,
         selectAllRecords,
         clearSelection,
@@ -1149,6 +1572,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteRecords,
         batchUpdateStatus,
         batchUpdateTrackerStatus,
+
+        // New methods
+        fetchStatusLogs,
+        fetchJobCards,
+        createJobCard,
+        updateJobCard,
+        deleteJobCard,
+
         updateAgentPermissions,
         resetAgentPermissionsToPreset,
         getUserEffectivePermissions,

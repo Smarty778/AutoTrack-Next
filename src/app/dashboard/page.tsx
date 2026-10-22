@@ -153,7 +153,7 @@ export default function DashboardPage() {
         }}
         recordToEdit={editingRecord}
       />
-
+      
       <JobCardModal
         isOpen={!!jobCardRecord}
         onClose={() => setJobCardRecord(null)}
