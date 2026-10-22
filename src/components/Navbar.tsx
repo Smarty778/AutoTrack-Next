@@ -80,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Sales Team &amp; Assignment</span>
+              <span>Team &amp; Assignment</span>
             </button>
           )}
 
@@ -238,7 +238,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Admin Access Control: Configure what fields agents are permitted to edit"
             >
               <Shield className="w-3.5 h-3.5 text-amber-600" />
-              <span>Agent Permissions</span>
+              <span>Permissions</span>
             </button>
           )}
 

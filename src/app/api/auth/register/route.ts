@@ -1,68 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs'; // if your lib/auth uses 'bcrypt', change this import to match
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { signToken } from '@/lib/auth';
+import {
+  BCRYPT_ROUNDS,
+  EMAIL_RE,
+  MIN_PASSWORD_LENGTH,
+  USERNAME_RE,
+  normalizeIdentity,
+  optionalStr,
+  str,
+} from '@/lib/validators';
 
-const USERNAME_RE = /^[a-zA-Z0-9_.]{3,30}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const fail = (message: string, status: number) =>
+  NextResponse.json({ success: false, message }, { status });
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return fail('Invalid request body', 400);
+    }
 
-    const name = String(body.name ?? '').trim();
-    const username = String(body.username ?? '').trim().toLowerCase();
-    const email = String(body.email ?? '').trim().toLowerCase();
-    const password = String(body.password ?? '');
-    const phone = body.phone ? String(body.phone).trim() : null;
-    const city = body.city ? String(body.city).trim() : null;
+    // Only these fields are ever read. `role`, `active`, permissions etc.
+    // sent by a client are ignored, so public sign-up can never create an admin.
+    const name = str(body.name);
+    const username = normalizeIdentity(body.username);
+    const email = normalizeIdentity(body.email);
+    const password = typeof body.password === 'string' ? body.password : '';
+    const phone = optionalStr(body.phone);
+    const city = optionalStr(body.city);
 
     // ---- Validation ----
     if (!name || !username || !email || !password) {
-      return NextResponse.json(
-        { success: false, message: 'Name, username, email and password are required' },
-        { status: 400 }
-      );
+      return fail('Name, username, email and password are required', 400);
     }
     if (!USERNAME_RE.test(username)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Username must be 3-30 characters: letters, numbers, dot or underscore',
-        },
-        { status: 400 }
+      return fail(
+        'Username must be 3-30 characters: letters, numbers, dot or underscore',
+        400
       );
     }
     if (!EMAIL_RE.test(email)) {
-      return NextResponse.json(
-        { success: false, message: 'Enter a valid email address' },
-        { status: 400 }
-      );
+      return fail('Enter a valid email address', 400);
     }
-    if (password.length < 8) {
-      return NextResponse.json(
-        { success: false, message: 'Password must be at least 8 characters' },
-        { status: 400 }
-      );
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return fail(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`, 400);
     }
 
     // ---- Uniqueness ----
     const existing = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] },
-      select: { username: true, email: true },
+      select: { username: true },
     });
     if (existing) {
       const field = existing.username === username ? 'Username' : 'Email';
-      return NextResponse.json(
-        { success: false, message: `${field} is already taken` },
-        { status: 409 }
-      );
+      return fail(`${field} is already taken`, 409);
     }
 
-    // ---- Create user ----
-    // Role is always USER here. Public sign-up must never be able to create admins;
-    // promote users to ADMIN from an admin-only endpoint or directly in the DB.
-    const passwordHash = await bcrypt.hash(password, 10);
+    // ---- Create user (role is hard-coded to USER) ----
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     const user = await prisma.user.create({
       data: {
@@ -74,38 +71,48 @@ export async function POST(req: NextRequest) {
         city,
         role: 'USER',
         active: true,
-        customPermissions: {
-          create: {}, // uses schema defaults (STANDARD-like permissions)
-        },
+        customPermissions: { create: {} }, // schema defaults
       },
       include: { customPermissions: true },
     });
 
-    await prisma.auditLog.create({
-      data: {
-        action: 'User Registered',
-        details: `New account created: ${user.username} (${user.email})`,
-        actorId: user.id,
-        actorName: user.name,
-      },
-    });
+    // Audit failure must not turn a successful sign-up into an error.
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: 'User Registered',
+          details: `New account created: ${user.username} (${user.email})`,
+          actorId: user.id,
+          actorName: user.name,
+        },
+      });
+    } catch (auditErr) {
+      console.error('Register audit log failed:', auditErr);
+    }
 
-    // ---- Sign in immediately ----
+    // ---- Sign in immediately (cookie only, same as login) ----
     const token = signToken(user);
 
-    const safeUser = {
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      city: user.city,
-      phone: user.phone,
-      avatarColor: user.avatarColor,
-      permissions: user.customPermissions,
-    };
+    const res = NextResponse.json(
+      {
+        success: true,
+        message: 'Account created successfully.',
+        user: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          city: user.city,
+          phone: user.phone,
+          avatarColor: user.avatarColor,
+          active: user.active,
+          permissions: user.customPermissions,
+        },
+      },
+      { status: 201 }
+    );
 
-    const res = NextResponse.json({ success: true, token, user: safeUser }, { status: 201 });
     res.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -116,16 +123,11 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (err: any) {
-    // Race condition: unique constraint hit between the check and the insert
+    // Race: unique constraint hit between the check and the insert
     if (err?.code === 'P2002') {
-      return NextResponse.json(
-        { success: false, message: 'Username or email is already taken' },
-        { status: 409 }
-      );
+      return fail('Username or email is already taken', 409);
     }
-    return NextResponse.json(
-      { success: false, message: err?.message || 'Registration failed' },
-      { status: 500 }
-    );
+    console.error('Register API error:', err);
+    return fail('Registration failed due to a server error.', 500);
   }
 }

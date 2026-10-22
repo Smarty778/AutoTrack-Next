@@ -11,7 +11,7 @@ async function main() {
     update: {},
     create: {
       id: 'user-admin',
-      name: 'Master Admin (AutoTrack Head)',
+      name: 'Admin',
       username: 'admin',
       email: 'autotrack321@gmail.com',
       passwordHash: '$2b$10$YourHashedPasswordHereOrPlainTextForDev',

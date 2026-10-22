@@ -11,7 +11,6 @@ import {
   PermissionPreset,
   LastStatusChange,
 } from '../types';
-import { INITIAL_RECORDS, INITIAL_USERS } from '../data/mockData';
 
 interface AppContextType {
   currentUser: UserProfile;
@@ -53,9 +52,9 @@ interface AppContextType {
 
   // User management & Authentication
   login: (
-  usernameOrEmail: string,
-  password: string
-) => Promise<{ success: boolean; message?: string }>;
+    usernameOrEmail: string,
+    password: string
+  ) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   switchUser: (userId: string) => void;
   addUser: (user: Omit<UserProfile, 'id'>) => void;
@@ -68,14 +67,15 @@ interface AppContextType {
   factoryResetPortal: () => void;
 }
 
+// Bumped to v5 so old demo/seed data cached in browsers is ignored
 const STORAGE_KEYS = {
-  RECORDS: 'autotrack_records_v4',
-  USERS: 'autotrack_users_v4',
-  LOGS: 'autotrack_audit_logs_v4',
-  CURRENT_USER_ID: 'autotrack_current_user_id_v4',
-  AUTH_STATE: 'autotrack_auth_state_v4',
-  PERMISSIONS: 'autotrack_agent_permissions_v4',
-  LAST_STATUS_CHANGE: 'autotrack_last_status_change_v4',
+  RECORDS: 'autotrack_records_v5',
+  USERS: 'autotrack_users_v5',
+  LOGS: 'autotrack_audit_logs_v5',
+  CURRENT_USER_ID: 'autotrack_current_user_id_v5',
+  AUTH_STATE: 'autotrack_auth_state_v5',
+  PERMISSIONS: 'autotrack_agent_permissions_v5',
+  LAST_STATUS_CHANGE: 'autotrack_last_status_change_v5',
 };
 
 const initialFilterState: FilterState = {
@@ -89,6 +89,17 @@ const initialFilterState: FilterState = {
   instDatePreset: 'all',
   showroom: 'all',
 };
+
+// Empty placeholder (not seed data) so currentUser is never null before login
+const EMPTY_USER = {
+  id: '',
+  name: 'Guest',
+  username: '',
+  email: '',
+  password: '',
+  role: 'user',
+  active: false,
+} as UserProfile;
 
 // Normalizes Prisma uppercase enums ('CONTINUED', 'IN_PROGRESS', 'ACTIVE') to UI strings
 const normalizeStatusFromApi = (status?: string): TrackerRecord['status'] => {
@@ -122,90 +133,89 @@ const normalizeRecordFromApi = (r: any): TrackerRecord => ({
   trackerStatus: normalizeTrackerStatusFromApi(r.trackerStatus),
 });
 
+const normalizeUserFromApi = (u: any): UserProfile =>
+  ({
+    ...u,
+    role: String(u.role).toLowerCase() === 'admin' ? 'admin' : 'user',
+    active: u.active !== false,
+    customPermissions: u.permissions ?? u.customPermissions,
+  }) as UserProfile;
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isHydrated, setIsHydrated] = useState(false);
-  const [users, setUsers] = useState<UserProfile[]>(INITIAL_USERS);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-  const [currentUserId, setCurrentUserId] = useState<string>('user-admin');
-  const [records, setRecords] = useState<TrackerRecord[]>(INITIAL_RECORDS);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [records, setRecords] = useState<TrackerRecord[]>([]);
   const [lastStatusChange, setLastStatusChange] = useState<LastStatusChange | null>(null);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([
-    {
-      id: 'log-1',
-      timestamp: new Date().toISOString(),
-      actorName: 'System',
-      action: 'System Initialized',
-      details: 'Initialized AutoTrack master fleet tracking database.',
-    },
-  ]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterState>(initialFilterState);
   const [agentPermissions, setAgentPermissions] = useState<AgentPermissions>(DEFAULT_AGENT_PERMISSIONS);
 
-  // Sync with backend API routes while preserving localStorage fallback
+  // Sync with backend API routes (database is the source of truth)
   const syncFromApi = useCallback(async () => {
     try {
       const [meRes, usersRes, recordsRes, logsRes] = await Promise.allSettled([
-        fetch('/api/auth/me', { credentials: 'include' }),
-        fetch('/api/users', { credentials: 'include' }),
-        fetch('/api/records', { credentials: 'include' }),
-        fetch('/api/audit-logs', { credentials: 'include' }),
+        fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/users', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/records', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/audit-logs', { credentials: 'include', cache: 'no-store' }),
       ]);
 
       // 1. Users list
       if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
         const apiUsers = await usersRes.value.json();
-        if (Array.isArray(apiUsers) && apiUsers.length > 0) {
-          setUsers(prev => {
-            const merged = [...apiUsers.map((u: any) => ({
-              ...u,
-              role: String(u.role).toLowerCase() === 'admin' ? 'admin' : 'user',
-            }))];
-            // Keep local seed users if not yet in DB so demo logins & switchUser always work
-            prev.forEach(localU => {
-              if (!merged.some(m => m.username.toLowerCase() === localU.username.toLowerCase())) {
-                merged.push(localU);
-              }
-            });
-            return merged;
-          });
+        if (Array.isArray(apiUsers)) {
+          setUsers(apiUsers.map(normalizeUserFromApi));
         }
       }
 
       // 2. Current authenticated session
-      if (meRes.status === 'fulfilled' && meRes.value.ok) {
-        const meData = await meRes.value.json();
-        if (meData?.success && meData?.user) {
-          setCurrentUserId(meData.user.id);
-          setIsAuthenticated(true);
+      if (meRes.status === 'fulfilled') {
+        if (meRes.value.ok) {
+          const meData = await meRes.value.json();
+          if (meData?.success && meData?.user) {
+            const me = normalizeUserFromApi(meData.user);
+            setUsers(prev =>
+              prev.some(u => u.id === me.id)
+                ? prev.map(u => (u.id === me.id ? { ...u, ...me } : u))
+                : [...prev, me]
+            );
+            setCurrentUserId(me.id);
+            setIsAuthenticated(true);
+          }
+        } else if (meRes.value.status === 401) {
+          // Server says no valid session
+          setIsAuthenticated(false);
+          setCurrentUserId('');
         }
       }
 
       // 3. Tracker Records
       if (recordsRes.status === 'fulfilled' && recordsRes.value.ok) {
         const apiRecords = await recordsRes.value.json();
-        if (Array.isArray(apiRecords) && apiRecords.length > 0) {
-          const normalized = apiRecords.map(normalizeRecordFromApi);
-          setRecords(normalized);
+        if (Array.isArray(apiRecords)) {
+          setRecords(apiRecords.map(normalizeRecordFromApi));
         }
       }
 
       // 4. Audit Logs
       if (logsRes.status === 'fulfilled' && logsRes.value.ok) {
         const apiLogs = await logsRes.value.json();
-        if (Array.isArray(apiLogs) && apiLogs.length > 0) {
+        if (Array.isArray(apiLogs)) {
           setAuditLogs(apiLogs);
         }
       }
     } catch {
-      // Fallback to localStorage state silently if offline or DB not migrated yet
+      // Keep cached localStorage state if offline
     }
   }, []);
 
-  // Load persisted state from localStorage once after mount, then trigger background API sync
+  // Load cached state from localStorage once after mount, then sync from API
   useEffect(() => {
     const read = <T,>(key: string): T | null => {
       try {
@@ -226,8 +236,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const savedAuth = read<boolean>(STORAGE_KEYS.AUTH_STATE);
     const savedLast = read<LastStatusChange>(STORAGE_KEYS.LAST_STATUS_CHANGE);
 
-    const effectiveUsers = savedUsers ?? INITIAL_USERS;
-    const effectiveRecords = savedRecords ?? INITIAL_RECORDS;
+    const effectiveRecords = savedRecords ?? [];
 
     let savedUserId: string | null = null;
     try {
@@ -240,9 +249,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (savedRecords) setRecords(savedRecords);
     if (savedLogs) setAuditLogs(savedLogs);
     if (savedPerms) setAgentPermissions(savedPerms);
-    if (savedAuth !== null) setIsAuthenticated(savedAuth);
-    if (savedUserId && effectiveUsers.some(u => u.id === savedUserId)) {
+
+    if (savedUserId && savedUsers?.some(u => u.id === savedUserId) && savedAuth === true) {
       setCurrentUserId(savedUserId);
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
     }
 
     if (savedLast) {
@@ -257,9 +269,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           regNo: latest.regNo,
           customerName: latest.customerName,
           newStatus: latest.status,
-          changedByUserId: latest.statusChangedByUserId || 'user-admin',
-          changedByUsername: latest.statusChangedBy || 'admin',
-          changedByName: latest.statusChangedBy || 'admin',
+          changedByUserId: latest.statusChangedByUserId || '',
+          changedByUsername: latest.statusChangedBy || 'system',
+          changedByName: latest.statusChangedBy || 'system',
           timestamp: latest.statusChangedAt!,
         });
       }
@@ -300,9 +312,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isHydrated) localStorage.setItem(STORAGE_KEYS.PERMISSIONS, JSON.stringify(agentPermissions));
   }, [isHydrated, agentPermissions]);
 
-  const currentUser = useMemo(() => {
-    const user = users.find(u => u.id === currentUserId);
-    return user || users[0] || INITIAL_USERS[0];
+  const currentUser = useMemo<UserProfile>(() => {
+    return users.find(u => u.id === currentUserId) || EMPTY_USER;
   }, [users, currentUserId]);
 
   // Appends audit log to local state AND posts to /api/audit-logs
@@ -333,101 +344,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [currentUser.name]
   );
 
-  // Login handler: Synchronous validation for UI + background cookie session via /api/auth/login
-  
-const login = async (
-  usernameOrEmail: string,
-  password: string
-): Promise<{ success: boolean; message?: string }> => {
-  const identifier = usernameOrEmail.trim().toLowerCase();
+  // Login: validated entirely by /api/auth/login (cookie session)
+  const login = async (
+    usernameOrEmail: string,
+    password: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const identifier = usernameOrEmail.trim().toLowerCase();
 
-  if (!identifier || !password) {
-    return {
-      success: false,
-      message: 'Enter your username/email and password.',
-    };
-  }
-
-  try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      cache: 'no-store',
-      body: JSON.stringify({
-        username: identifier,
-        password,
-      }),
-    });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok || !data?.success || !data?.user) {
-      return {
-        success: false,
-        message: data?.message || 'Login failed. Check your credentials.',
-      };
+    if (!identifier || !password) {
+      return { success: false, message: 'Enter your username/email and password.' };
     }
 
-    const apiUser = data.user;
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({ username: identifier, password }),
+      });
 
-    const normalizedUser = {
-      ...apiUser,
-      role:
-        String(apiUser.role).toLowerCase() === 'admin'
-          ? 'admin'
-          : 'user',
-      active: apiUser.active !== false,
-      customPermissions:
-        apiUser.permissions ?? apiUser.customPermissions,
-    } as UserProfile;
+      const data = await response.json().catch(() => null);
 
-    setUsers((previousUsers) => {
-      const existingIndex = previousUsers.findIndex(
-        (existingUser) =>
-          existingUser.id === normalizedUser.id ||
-          existingUser.username?.toLowerCase() === identifier ||
-          existingUser.email?.toLowerCase() === identifier
-      );
-
-      if (existingIndex === -1) {
-        return [...previousUsers, normalizedUser];
+      if (!response.ok || !data?.success || !data?.user) {
+        return {
+          success: false,
+          message: data?.message || 'Login failed. Check your credentials.',
+        };
       }
 
-      return previousUsers.map((existingUser, index) =>
-        index === existingIndex
-          ? { ...existingUser, ...normalizedUser }
-          : existingUser
-      );
-    });
+      const normalizedUser = normalizeUserFromApi(data.user);
 
-    setCurrentUserId(normalizedUser.id);
-    setIsAuthenticated(true);
-    setSelectedRecordIds([]);
-    setFilters((previousFilters) => ({
-      ...previousFilters,
-      salesPerson: 'all',
-    }));
+      setUsers(previousUsers => {
+        const existingIndex = previousUsers.findIndex(
+          existingUser =>
+            existingUser.id === normalizedUser.id ||
+            existingUser.username?.toLowerCase() === identifier ||
+            existingUser.email?.toLowerCase() === identifier
+        );
 
-    void syncFromApi();
+        if (existingIndex === -1) {
+          return [...previousUsers, normalizedUser];
+        }
 
-    return { success: true };
-  } catch (error) {
-    console.error('Login error:', error);
+        return previousUsers.map((existingUser, index) =>
+          index === existingIndex ? { ...existingUser, ...normalizedUser } : existingUser
+        );
+      });
 
-    return {
-      success: false,
-      message: 'Cannot connect to the server. Please try again.',
-    };
-  }
-};
+      setCurrentUserId(normalizedUser.id);
+      setIsAuthenticated(true);
+      setSelectedRecordIds([]);
+      setFilters(previousFilters => ({ ...previousFilters, salesPerson: 'all' }));
 
+      void syncFromApi();
+
+      return { success: true };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, message: 'Cannot connect to the server. Please try again.' };
+    }
+  };
 
   // Logout
   const logout = () => {
     setIsAuthenticated(false);
+    setCurrentUserId('');
     setSelectedRecordIds([]);
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
   };
@@ -498,8 +480,10 @@ const login = async (
   };
 
   const deleteUser = (userId: string) => {
-    if (userId === 'user-admin') return;
     const targetUser = users.find(u => u.id === userId);
+    // Never delete the last remaining admin
+    if (targetUser?.role === 'admin' && users.filter(u => u.role === 'admin').length <= 1) return;
+
     setUsers(prev => prev.filter(u => u.id !== userId));
     setRecords(prev =>
       prev.map(r =>
@@ -510,8 +494,8 @@ const login = async (
     );
     addAuditLog('User Deleted', `Deleted user account for ${targetUser?.name || userId}`);
     if (currentUserId === userId) {
-      setCurrentUserId('user-admin');
-      setIsAuthenticated(true);
+      setCurrentUserId('');
+      setIsAuthenticated(false);
     }
   };
 
@@ -1118,19 +1102,21 @@ const login = async (
     }
   };
 
-  // Factory Reset / Wipe Portal
+  // Factory Reset / Wipe Portal (local cache only; database is untouched)
   const factoryResetPortal = () => {
     try {
       localStorage.clear();
-      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify([]));
     } catch {
       // ignore
     }
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     setRecords([]);
-    setUsers(INITIAL_USERS);
+    setUsers([]);
+    setAuditLogs([]);
+    setLastStatusChange(null);
     setAgentPermissions(DEFAULT_AGENT_PERMISSIONS);
-    setCurrentUserId('user-admin');
-    setIsAuthenticated(true);
+    setCurrentUserId('');
+    setIsAuthenticated(false);
     setSelectedRecordIds([]);
     setFilters(initialFilterState);
     window.location.reload();

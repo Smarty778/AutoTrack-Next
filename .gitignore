@@ -6,7 +6,5 @@ dist/
 coverage/
 .DS_Store
 *.log
-.env*
-!.env.example
 database.json
 next-env.d.ts
