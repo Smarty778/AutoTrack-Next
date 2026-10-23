@@ -72,18 +72,18 @@ export async function POST(req: NextRequest) {
       ).trim();
 
       if (!secret) {
-        return fail('DEBUG: BOOTSTRAP_SECRET is not set on the server', 403);
+        return fail('Admin bootstrap is not available. Check server configuration.', 403);
       }
       if (!supplied) {
-        return fail('DEBUG: bootstrap secret was not sent (header or body)', 403);
+        return fail('A valid bootstrap credential is required.', 403);
       }
       if (supplied !== secret) {
-        return fail('DEBUG: bootstrap secret does not match', 403);
+        return fail('A valid bootstrap credential is required.', 403);
       }
 
       const adminCount = await prisma.user.count({ where: { role: 'ADMIN' } });
       if (adminCount > 0) {
-        return fail(`DEBUG: ${adminCount} admin(s) already exist`, 403);
+        return fail('Admin bootstrap is no longer available.', 403);
       }
       isBootstrap = true;
     }

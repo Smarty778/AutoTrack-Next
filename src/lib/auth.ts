@@ -2,7 +2,13 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import type { NextRequest } from 'next/server';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'autotrack_secure_jwt_secret_2026';
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be configured with at least 32 characters.');
+  }
+  return secret;
+}
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
@@ -15,7 +21,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 export function signToken(user: { id: string; username: string; email: string; role: string }): string {
   return jwt.sign(
     { id: user.id, username: user.username, email: user.email, role: user.role },
-    JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: '7d' }
   );
 }
@@ -32,7 +38,7 @@ export function verifyAuth(req: NextRequest) {
   const token = getTokenFromRequest(req);
   if (!token) return null;
   try {
-    return jwt.verify(token, JWT_SECRET) as {
+    return jwt.verify(token, getJwtSecret()) as {
       id: string;
       username: string;
       email: string;

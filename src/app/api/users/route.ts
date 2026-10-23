@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { verifyAuth, hashPassword } from '@/lib/auth';
 import { UserRole } from '@prisma/client';
+import { normalizeIdentity, MIN_PASSWORD_LENGTH } from '@/lib/validators';
 
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req);
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(users);
   } catch (err: any) {
-    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+    console.error('GET /api/users error:', err);
+    return NextResponse.json({ success: false, message: 'Failed to load users' }, { status: 500 });
   }
 }
 
@@ -42,19 +44,25 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { name, username, email, password, role, city, phone, avatarColor } = await req.json();
+    const body = await req.json();
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const username = normalizeIdentity(body.username);
+    const email = normalizeIdentity(body.email);
+    const password = typeof body.password === 'string' ? body.password : '';
+    const role = body.role;
+    const city = typeof body.city === 'string' ? body.city.trim() : '';
+    const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+    const avatarColor = typeof body.avatarColor === 'string' ? body.avatarColor : undefined;
 
-    if (!username || !email) {
+    if (!username || !email || password.length < MIN_PASSWORD_LENGTH) {
       return NextResponse.json(
-        { success: false, message: 'Username and email are required' },
+        { success: false, message: `Username, email, and a password of at least ${MIN_PASSWORD_LENGTH} characters are required` },
         { status: 400 }
       );
     }
 
     const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ username }, { email }],
-      },
+      where: { OR: [{ username }, { email }] },
     });
 
     if (existingUser) {
@@ -64,7 +72,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const hashedPassword = await hashPassword(password || 'user123');
+    const hashedPassword = await hashPassword(password);
     const assignedRole = role?.toUpperCase() === 'ADMIN' ? UserRole.ADMIN : UserRole.USER;
 
     const newUser = await prisma.user.create({
@@ -74,8 +82,8 @@ export async function POST(req: NextRequest) {
         email,
         passwordHash: hashedPassword,
         role: assignedRole,
-        city: city || 'Lahore',
-        phone: phone || '',
+        city: city || null,
+        phone: phone || null,
         avatarColor: avatarColor || 'bg-blue-600',
         active: true,
         customPermissions: {
@@ -113,6 +121,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, user: newUser }, { status: 201 });
   } catch (err: any) {
-    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+    console.error('POST /api/users error:', err);
+    return NextResponse.json({ success: false, message: 'Failed to create user' }, { status: 500 });
   }
 }
