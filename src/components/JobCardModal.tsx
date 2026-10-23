@@ -125,7 +125,7 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[96dvh] sm:max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="autotrack-modal-panel bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[96dvh] sm:max-h-[92vh] flex flex-col overflow-hidden">
         
         {/* Modal Top Bar (hidden during print) */}
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50 print:hidden">

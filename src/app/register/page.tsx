@@ -6,16 +6,22 @@ import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { FullScreenLoader } from '@/components/FullScreenLoader';
 import { CitySelectField } from '@/components/CitySelectField';
-import { ShieldCheck, UserPlus, AlertCircle } from 'lucide-react';
+import { ShieldCheck, UserPlus, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const inputClass =
   'w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition';
 const labelClass =
   'block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider';
 
+// Dark theme override for the city dropdown (matches inputClass).
+// Tailwind v3 uses the leading "!" for important; for Tailwind v4 use the trailing form,
+// e.g. "bg-slate-900! border-slate-700! text-white!".
+const citySelectClass =
+  '!bg-slate-900 !border-slate-700 !text-white focus:!border-blue-500 focus:!ring-1 focus:!ring-blue-500';
+
 export default function RegisterPage() {
   const router = useRouter();
-  const { isAuthenticated, isHydrated, login } = useApp();
+  const { isAuthenticated, isHydrated, register } = useApp();
 
   const [form, setForm] = useState({
     name: '',
@@ -26,6 +32,8 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,29 +60,22 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          username: form.username,
-          email: form.email,
-          phone: form.phone,
-          city: form.city,
-          password: form.password,
-        }),
+      const result = await register({
+        name: form.name,
+        username: form.username,
+        email: form.email,
+        phone: form.phone,
+        city: form.city,
+        password: form.password,
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        setError(data.message || 'Registration failed. Please try again.');
+      if (!result.success) {
+        setError(result.message || 'Registration failed. Please try again.');
         return;
       }
 
-      // Account exists and the cookie is set. Sign in through the app context
-      // so its state is populated, then go to the dashboard.
-      const ok = await login(form.username, form.password);
-      router.replace(ok ? '/dashboard' : '/login');
+      // Registration, cookie session and client state are managed by AppContext.
+      router.replace('/dashboard');
     } catch (err: any) {
       setError(err?.message || 'Something went wrong. Please try again.');
     } finally {
@@ -142,7 +143,7 @@ export default function RegisterPage() {
                 value={form.city}
                 onChange={(city) => setForm((prev) => ({ ...prev, city }))}
                 placeholder="Select city (optional)"
-                className="bg-white"
+                className={citySelectClass}
               />
             </div>
           </div>
@@ -174,29 +175,63 @@ export default function RegisterPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Password</label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={form.password}
-                onChange={update('password')}
-                placeholder="At least 8 characters"
-                autoComplete="new-password"
-                className={inputClass}
-              />
+              <label htmlFor="password" className={labelClass}>
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  value={form.password}
+                  onChange={update('password')}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  className={`${inputClass} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-slate-500 hover:text-slate-200 transition cursor-pointer"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <div>
-              <label className={labelClass}>Confirm password</label>
-              <input
-                type="password"
-                required
-                value={form.confirmPassword}
-                onChange={update('confirmPassword')}
-                placeholder="Repeat password"
-                autoComplete="new-password"
-                className={inputClass}
-              />
+              <label htmlFor="confirmPassword" className={labelClass}>
+                Confirm password
+              </label>
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  value={form.confirmPassword}
+                  onChange={update('confirmPassword')}
+                  placeholder="Repeat password"
+                  autoComplete="new-password"
+                  className={`${inputClass} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-slate-500 hover:text-slate-200 transition cursor-pointer"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 

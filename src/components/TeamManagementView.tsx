@@ -409,7 +409,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
       {/* Add User Modal */}
       {showAddUserModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+          <div className="autotrack-modal-panel bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
             <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <span className="font-bold text-slate-900 text-xs sm:text-sm">Create New Sales Representative Account</span>
               <button
@@ -517,7 +517,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
       {/* Change Password Modal */}
       {passwordModalUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm max-h-[96dvh] overflow-y-auto overscroll-contain">
+          <div className="autotrack-modal-panel bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm max-h-[96dvh] overflow-y-auto overscroll-contain">
             <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <span className="font-bold text-slate-900 text-xs sm:text-sm truncate mr-2">
                 Reset Password for {passwordModalUser.name}

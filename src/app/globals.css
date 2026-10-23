@@ -39,41 +39,66 @@ img, video, canvas, svg { max-width: 100%; }
 input, select, textarea, button { min-width: 0; }
 
 @media (max-width: 640px) {
+  /* Every full-screen overlay is centered in the actual visual viewport. */
   .fixed.inset-0.z-50 {
     align-items: center !important;
     justify-content: center !important;
     padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)) !important;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .fixed.inset-0.z-50 > .bg-white {
-    width: 100% !important;
+    display: flex;
+    flex-direction: column;
+    width: calc(100vw - 16px) !important;
     min-width: 0 !important;
     max-width: calc(100vw - 16px) !important;
     max-height: calc(100dvh - 16px) !important;
-    min-height: 0;
+    min-height: 0 !important;
+    height: auto;
     margin: auto;
     border-radius: 14px;
+    overflow: hidden;
   }
 
   .fixed.inset-0.z-50 > .bg-white > form,
   .fixed.inset-0.z-50 > .bg-white > .overflow-y-auto,
   .fixed.inset-0.z-50 > .bg-white .overflow-y-auto {
+    min-width: 0;
     min-height: 0;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
 
+  .fixed.inset-0.z-50 > .bg-white > form { flex: 1 1 auto; }
   .fixed.inset-0.z-50 > .bg-white table { min-width: max-content; }
   .fixed.inset-0.z-50 input,
   .fixed.inset-0.z-50 select,
   .fixed.inset-0.z-50 textarea { max-width: 100%; font-size: 16px; }
   .fixed.inset-0.z-50 button { touch-action: manipulation; }
 
-  .audit-view { min-height: 0; }
+  /* The profile menu is also constrained to the screen on narrow viewports. */
+  .user-profile-menu { width: calc(100vw - 16px); max-width: 24rem; }
+  .audit-view { width: 100%; min-width: 0; min-height: 0; }
   .audit-view .max-h-\[62dvh\] { max-height: 62dvh; }
+
+  /* Avoid 1px–3px overflow caused by grid children on 320px devices. */
+  .autotrack-modal-grid,
+  .autotrack-modal-grid > *,
+  .autotrack-modal-panel,
+  .autotrack-modal-panel * { min-width: 0; }
+}
+
+@media (max-width: 380px) {
+  .fixed.inset-0.z-50 { padding-left: 6px !important; padding-right: 6px !important; }
+  .fixed.inset-0.z-50 > .bg-white {
+    width: calc(100vw - 12px) !important;
+    max-width: calc(100vw - 12px) !important;
+    border-radius: 12px;
+  }
 }
 
 @media print {

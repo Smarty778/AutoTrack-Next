@@ -41,7 +41,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   const defaultFormData: Omit<TrackerRecord, 'id' | 'createdAt' | 'updatedAt'> = {
     regNo: '',
     customerName: '',
-    make: 'Toyota',
+    make: '',
     model: '',
     year: '2024',
     color: 'White',
@@ -75,7 +75,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
       setFormData({
         regNo: recordToEdit.regNo || '',
         customerName: recordToEdit.customerName || '',
-        make: recordToEdit.make || 'Toyota',
+        make: recordToEdit.make || '',
         model: recordToEdit.model || '',
         year: recordToEdit.year || '2024',
         color: recordToEdit.color || '',
@@ -189,7 +189,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[96dvh] sm:max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="autotrack-modal-panel bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[96dvh] sm:max-h-[92vh] flex flex-col overflow-hidden">
         
         {/* Modal Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -284,7 +284,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-3.5 sm:p-6 text-xs">
+        <form onSubmit={handleSubmit} className="autotrack-modal-grid flex-1 min-w-0 overflow-y-auto p-3.5 sm:p-6 text-xs">
           
           {/* TAB 1: VEHICLE & CUSTOMER */}
           {activeTab === 'vehicle' && (
@@ -356,25 +356,14 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                   <input
                     type="text"
                     name="make"
-                    list="make-list"
                     disabled={!canEditVehicle}
                     value={formData.make}
                     onChange={handleChange}
-                    placeholder="Toyota, Honda..."
+                    placeholder="Enter or paste vehicle make"
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
                       canEditVehicle ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
                     }`}
                   />
-                  <datalist id="make-list">
-                    <option value="Toyota" />
-                    <option value="Honda" />
-                    <option value="Suzuki" />
-                    <option value="KIA" />
-                    <option value="Hyundai" />
-                    <option value="Haval" />
-                    <option value="Changan" />
-                    <option value="MG" />
-                  </datalist>
                 </div>
 
                 <div>

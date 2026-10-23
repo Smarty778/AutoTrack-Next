@@ -70,6 +70,23 @@ export interface JobCard {
   };
 }
 
+export interface RegisterAccountInput {
+  name: string;
+  username: string;
+  email: string;
+  password: string;
+  phone?: string;
+  city?: string;
+}
+
+export interface AuditLogQuery {
+  from?: string;
+  to?: string;
+  search?: string;
+  take?: number;
+  signal?: AbortSignal;
+}
+
 interface AppContextType {
   currentUser: UserProfile;
   users: UserProfile[];
@@ -84,9 +101,10 @@ interface AppContextType {
   globalAgentPermissions: AgentPermissions;
   lastStatusChange: LastStatusChange | null;
 
-  // Status Logs & Job Cards
+  // Status Logs, Audit Logs & Job Cards
   statusLogs: StatusChangeLog[];
   jobCards: JobCard[];
+  fetchAuditLogs: (query?: AuditLogQuery) => Promise<{ logs: AuditLogEntry[]; total: number } | null>;
 
   // Selection
   toggleSelectRecord: (id: string) => void;
@@ -129,6 +147,7 @@ interface AppContextType {
     usernameOrEmail: string,
     password: string
   ) => Promise<{ success: boolean; message?: string }>;
+  register: (input: RegisterAccountInput) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   switchUser: (userId: string) => void;
   addUser: (user: Omit<UserProfile, 'id'>) => Promise<boolean>;
@@ -279,17 +298,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     DEFAULT_AGENT_PERMISSIONS
   );
 
+  // Central API transport for the entire UI. All endpoint calls live behind
+  // AppContext so cookies, cache policy and expired-session handling stay uniform.
+  const clearClientSession = useCallback(() => {
+    setIsAuthenticated(false);
+    setCurrentUserId('');
+    setUsers([]);
+    setRecords([]);
+    setAuditLogs([]);
+    setStatusLogs([]);
+    setJobCards([]);
+    setSelectedRecordIds([]);
+    setAgentPermissions(DEFAULT_AGENT_PERMISSIONS);
+  }, []);
+
+  const apiFetch = useCallback(async (
+    input: RequestInfo | URL,
+    init: RequestInit = {}
+  ): Promise<Response> => {
+    const response = await fetch(input, {
+      credentials: 'include',
+      cache: 'no-store',
+      ...init,
+    });
+    if (response.status === 401) clearClientSession();
+    return response;
+  }, [clearClientSession]);
+
   // --------------------------------------------------
   // Sync from backend API
   // --------------------------------------------------
   const syncFromApi = useCallback(async () => {
     try {
       const [meRes, usersRes, recordsRes, logsRes, permissionsRes] = await Promise.allSettled([
-        fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' }),
-        fetch('/api/users', { credentials: 'include', cache: 'no-store' }),
-        fetch('/api/records', { credentials: 'include', cache: 'no-store' }),
-        fetch('/api/audit-logs', { credentials: 'include', cache: 'no-store' }),
-        fetch('/api/permissions', { credentials: 'include', cache: 'no-store' }),
+        apiFetch('/api/auth/me', { credentials: 'include', cache: 'no-store' }),
+        apiFetch('/api/users', { credentials: 'include', cache: 'no-store' }),
+        apiFetch('/api/records', { credentials: 'include', cache: 'no-store' }),
+        apiFetch('/api/audit-logs', { credentials: 'include', cache: 'no-store' }),
+        apiFetch('/api/permissions', { credentials: 'include', cache: 'no-store' }),
       ]);
 
       // Users
@@ -314,10 +360,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
             setCurrentUserId(me.id);
             setIsAuthenticated(true);
           }
-        } else if (meRes.value.status === 401) {
+        } else {
+          // Browser storage is only a display cache; it is never proof of a session.
           setIsAuthenticated(false);
           setCurrentUserId('');
+          setUsers([]);
+          setRecords([]);
+          setAuditLogs([]);
+          setStatusLogs([]);
+          setJobCards([]);
+          setSelectedRecordIds([]);
+          setAgentPermissions(DEFAULT_AGENT_PERMISSIONS);
         }
+      } else {
+        // When the session endpoint cannot be reached, fail closed rather than
+        // treating a stale localStorage flag as an authenticated session.
+        setIsAuthenticated(false);
+        setCurrentUserId('');
+        setUsers([]);
+        setRecords([]);
+        setAuditLogs([]);
+        setStatusLogs([]);
+        setJobCards([]);
+        setSelectedRecordIds([]);
+        setAgentPermissions(DEFAULT_AGENT_PERMISSIONS);
       }
 
       // Tracker Records
@@ -344,7 +410,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch {
       // Keep localStorage state if offline
     }
-  }, []);
+  }, [apiFetch]);
 
   // Load from localStorage once, then sync from API
   useEffect(() => {
@@ -359,39 +425,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const savedUsers =
       read<UserProfile[]>(STORAGE_KEYS.USERS)?.map((u) => {
-        const { password: _legacyPassword, ...safeUser } = u as UserProfile;
+        const { password: _legacyPassword, passwordHash: _legacyHash, ...safeUser } = u as UserProfile & { passwordHash?: string };
         return (safeUser.role as string) === 'sales' ? { ...safeUser, role: 'user' as const } : safeUser;
       }) ?? null;
     const savedRecords = read<TrackerRecord[]>(STORAGE_KEYS.RECORDS);
     const savedLogs = read<AuditLogEntry[]>(STORAGE_KEYS.LOGS);
     const savedPerms = read<AgentPermissions>(STORAGE_KEYS.PERMISSIONS);
-    const savedAuth = read<boolean>(STORAGE_KEYS.AUTH_STATE);
     const savedLast = read<LastStatusChange>(STORAGE_KEYS.LAST_STATUS_CHANGE);
 
     const effectiveRecords = savedRecords ?? [];
-
-    let savedUserId: string | null = null;
-    try {
-      savedUserId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-    } catch {
-      // ignore
-    }
 
     if (savedUsers) setUsers(savedUsers);
     if (savedRecords) setRecords(savedRecords);
     if (savedLogs) setAuditLogs(savedLogs);
     if (savedPerms) setAgentPermissions(savedPerms);
 
-    if (
-      savedUserId &&
-      savedUsers?.some((u) => u.id === savedUserId) &&
-      savedAuth === true
-    ) {
-      setCurrentUserId(savedUserId);
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-    }
+    // Never restore the authenticated identity from localStorage. The signed
+    // HTTP-only cookie validated by /api/auth/me is the sole session authority.
+    setCurrentUserId('');
+    setIsAuthenticated(false);
 
     if (savedLast) {
       setLastStatusChange(savedLast);
@@ -417,8 +469,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
 
-    setIsHydrated(true);
-    syncFromApi();
+    // Keep auth pages on a loader until /api/auth/me has been checked. This
+    // prevents a valid cookie from being redirected because client state starts
+    // unauthenticated, and prevents localStorage from masquerading as a session.
+    void syncFromApi().finally(() => setIsHydrated(true));
   }, [syncFromApi]);
 
   // Persist to localStorage after hydration
@@ -432,7 +486,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [isHydrated, lastStatusChange]);
 
   useEffect(() => {
-    if (isHydrated) localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users.map((item) => { const { password: _legacyPassword, ...safeUser } = item as UserProfile & { passwordHash?: string }; return safeUser; })));
+    if (isHydrated) localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users.map((item) => { const { password: _legacyPassword, passwordHash: _legacyHash, ...safeUser } = item as UserProfile & { passwordHash?: string }; return safeUser; })));
   }, [isHydrated, users]);
 
   useEffect(() => {
@@ -482,7 +536,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       setAuditLogs((prev) => [newLog, ...prev.slice(0, 99)]);
 
-      fetch('/api/audit-logs', {
+      apiFetch('/api/audit-logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -494,8 +548,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         }),
       }).catch(() => {});
     },
-    [currentUser.name]
+    [currentUser.name, apiFetch]
   );
+
+  // --------------------------------------------------
+  // Centralized API methods used by screens/components
+  // --------------------------------------------------
+  const fetchAuditLogs = useCallback(async (
+    query: AuditLogQuery = {}
+  ): Promise<{ logs: AuditLogEntry[]; total: number } | null> => {
+    try {
+      const params = new URLSearchParams();
+      params.set('take', String(Math.min(Math.max(query.take ?? 5000, 1), 5000)));
+      if (query.from) params.set('from', query.from);
+      if (query.to) params.set('to', query.to);
+      if (query.search?.trim()) params.set('search', query.search.trim());
+
+      const response = await apiFetch(`/api/audit-logs?${params.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: query.signal,
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        if (response.status === 401) {
+          setIsAuthenticated(false);
+          setCurrentUserId('');
+        }
+        throw new Error(payload?.error || payload?.message || 'Unable to load audit history');
+      }
+
+      const logs: AuditLogEntry[] = Array.isArray(payload?.logs)
+        ? payload.logs
+        : Array.isArray(payload)
+        ? payload
+        : [];
+      const total = typeof payload?.total === 'number' ? payload.total : logs.length;
+      setAuditLogs(logs);
+      return { logs, total };
+    } catch (error) {
+      if ((error as { name?: string })?.name !== 'AbortError') {
+        console.error('fetchAuditLogs failed:', error);
+      }
+      return null;
+    }
+  }, [apiFetch]);
 
   // --------------------------------------------------
   // Auth
@@ -511,7 +608,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -562,11 +659,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const register = async (
+    input: RegisterAccountInput
+  ): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const response = await apiFetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({
+          name: input.name.trim(),
+          username: input.username.trim().toLowerCase(),
+          email: input.email.trim().toLowerCase(),
+          phone: input.phone?.trim() || '',
+          city: input.city?.trim() || '',
+          password: input.password,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success || !data?.user?.id) {
+        return { success: false, message: data?.message || 'Registration failed. Please try again.' };
+      }
+
+      const registeredUser = normalizeUserFromApi(data.user);
+      setUsers((previous) => previous.some((user) => user.id === registeredUser.id)
+        ? previous.map((user) => user.id === registeredUser.id ? { ...user, ...registeredUser } : user)
+        : [...previous, registeredUser]);
+      setCurrentUserId(registeredUser.id);
+      setIsAuthenticated(true);
+      setSelectedRecordIds([]);
+      setFilters(initialFilterState);
+
+      // Re-query the authoritative cookie session and central API data.
+      void syncFromApi();
+      return { success: true };
+    } catch (error) {
+      console.error('Registration API failed:', error);
+      return { success: false, message: 'Cannot connect to the server. Please try again.' };
+    }
+  };
+
   const logout = () => {
     setIsAuthenticated(false);
     setCurrentUserId('');
     setSelectedRecordIds([]);
-    fetch('/api/auth/logout', {
+    apiFetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'include',
     }).catch(() => {});
@@ -601,7 +739,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     setUsers((prev) => [...prev, temporaryUser]);
 
     try {
-      const response = await fetch('/api/users', {
+      const response = await apiFetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -636,7 +774,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const updateUserPassword = async (userId: string, newPass: string): Promise<boolean> => {
     if (newPass.length < 8) return false;
     try {
-      const response = await fetch('/api/users', {
+      const response = await apiFetch('/api/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -663,7 +801,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     const target = users.find((u) => u.id === userId);
     if (!target) return false;
     try {
-      const response = await fetch('/api/users', {
+      const response = await apiFetch('/api/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -684,7 +822,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     const targetUser = users.find((u) => u.id === userId);
     if (!targetUser || (targetUser.role === 'admin' && users.filter((u) => u.role === 'admin').length <= 1)) return false;
     try {
-      const response = await fetch('/api/users', {
+      const response = await apiFetch('/api/users', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -809,9 +947,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     }
     if (filters.instCity !== 'all') {
-      list = list.filter(
-        (r) => r.instCity.toLowerCase() === filters.instCity.toLowerCase()
-      );
+      const cityQuery = filters.instCity.trim().toLocaleLowerCase();
+      list = list.filter((r) => (r.instCity || '').toLocaleLowerCase().includes(cityQuery));
     }
     if (filters.showroom !== 'all') {
       list = list.filter(
@@ -881,7 +1018,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const outcomes = await Promise.all(recordIds.map(async (id) => {
       try {
-        const response = await fetch(`/api/records/${id}`, {
+        const response = await apiFetch(`/api/records/${id}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
           body: JSON.stringify({ assignedToUserId: assignedId, salesPerson: assignedName }),
         });
@@ -922,7 +1059,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     try {
-      const response = await fetch(`/api/records/${id}`, {
+      const response = await apiFetch(`/api/records/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -985,7 +1122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     try {
-      const response = await fetch('/api/records', {
+      const response = await apiFetch('/api/records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -1030,7 +1167,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     if (recordIds.length === 0) return false;
     const outcomes = await Promise.all(recordIds.map(async (id) => {
       try {
-        const response = await fetch(`/api/records/${id}`, { method: 'DELETE', credentials: 'include' });
+        const response = await apiFetch(`/api/records/${id}`, { method: 'DELETE', credentials: 'include' });
         const body = await response.json().catch(() => null);
         return { id, ok: response.ok && body?.success === true, message: body?.error };
       } catch {
@@ -1056,7 +1193,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     if (recordIds.length === 0) return false;
     const outcomes = await Promise.all(recordIds.map(async (id) => {
       try {
-        const response = await fetch(`/api/records/${id}`, {
+        const response = await apiFetch(`/api/records/${id}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
           body: JSON.stringify({ status }),
         });
@@ -1094,7 +1231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     if (recordIds.length === 0) return false;
     const outcomes = await Promise.all(recordIds.map(async (id) => {
       try {
-        const response = await fetch(`/api/records/${id}`, {
+        const response = await apiFetch(`/api/records/${id}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
           body: JSON.stringify({ trackerStatus }),
         });
@@ -1128,7 +1265,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     newRecords.forEach((rec) => {
-      fetch('/api/records', {
+      apiFetch('/api/records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -1152,7 +1289,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         ? `/api/status-logs?recordId=${recordId}&limit=100`
         : '/api/status-logs?limit=100';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         credentials: 'include',
         cache: 'no-store',
       });
@@ -1170,7 +1307,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (err) {
       console.error('fetchStatusLogs error:', err);
     }
-  }, []);
+  }, [apiFetch]);
 
   // --------------------------------------------------
   // Job Cards
@@ -1183,7 +1320,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         if (opts?.status) params.set('status', opts.status);
         params.set('limit', '100');
 
-        const res = await fetch(`/api/job-cards?${params.toString()}`, {
+        const res = await apiFetch(`/api/job-cards?${params.toString()}`, {
           credentials: 'include',
           cache: 'no-store',
         });
@@ -1202,7 +1339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         console.error('fetchJobCards error:', err);
       }
     },
-    []
+    [apiFetch]
   );
 
   const createJobCard = useCallback(
@@ -1210,7 +1347,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       data: Partial<JobCard> & { recordId: string }
     ): Promise<JobCard | null> => {
       try {
-        const res = await fetch('/api/job-cards', {
+        const res = await apiFetch('/api/job-cards', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -1238,13 +1375,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         return null;
       }
     },
-    [addAuditLog]
+    [apiFetch, addAuditLog]
   );
 
   const updateJobCard = useCallback(
     async (id: string, updates: Partial<JobCard>): Promise<JobCard | null> => {
       try {
-        const res = await fetch(`/api/job-cards/${id}`, {
+        const res = await apiFetch(`/api/job-cards/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -1274,13 +1411,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         return null;
       }
     },
-    [addAuditLog]
+    [apiFetch, addAuditLog]
   );
 
   const deleteJobCard = useCallback(
     async (id: string): Promise<boolean> => {
       try {
-        const res = await fetch(`/api/job-cards/${id}`, {
+        const res = await apiFetch(`/api/job-cards/${id}`, {
           method: 'DELETE',
           credentials: 'include',
         });
@@ -1295,7 +1432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         return false;
       }
     },
-    [addAuditLog]
+    [apiFetch, addAuditLog]
   );
 
   // --------------------------------------------------
@@ -1345,7 +1482,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     if (targetUserId && targetUserId !== 'global') {
       const newPermissions = { ...getUserEffectivePermissions(targetUserId), ...updates };
       try {
-        const response = await fetch('/api/users', {
+        const response = await apiFetch('/api/users', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
           body: JSON.stringify({ userId: targetUserId, customPermissions: newPermissions }),
         });
@@ -1364,7 +1501,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const nextPermissions = { ...agentPermissions, ...updates };
     try {
-      const response = await fetch('/api/permissions', {
+      const response = await apiFetch('/api/permissions', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({ permissions: nextPermissions }),
       });
@@ -1381,7 +1518,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const clearUserCustomPermissions = async (userId: string): Promise<boolean> => {
     try {
-      const response = await fetch('/api/users', {
+      const response = await apiFetch('/api/users', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({ userId, clearCustomPermissions: true }),
       });
@@ -1483,7 +1620,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     const newPerms = getPresetPermissions(preset);
     try {
       if (targetUserId && targetUserId !== 'global') {
-        const response = await fetch('/api/users', {
+        const response = await apiFetch('/api/users', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
           body: JSON.stringify({ userId: targetUserId, customPermissions: newPerms }),
         });
@@ -1495,7 +1632,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         const targetUser = users.find((u) => u.id === targetUserId);
         addAuditLog('Agent Preset Applied', `Admin applied "${preset.toUpperCase()}" preset to agent ${targetUser?.name || targetUserId}.`);
       } else {
-        const response = await fetch('/api/permissions', {
+        const response = await apiFetch('/api/permissions', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
           body: JSON.stringify({ permissions: newPerms }),
         });
@@ -1520,7 +1657,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch {
       // ignore
     }
-    fetch('/api/auth/logout', {
+    apiFetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'include',
     }).catch(() => {});
@@ -1561,6 +1698,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         // New
         statusLogs,
         jobCards,
+        fetchAuditLogs,
 
         toggleSelectRecord,
         selectAllRecords,
@@ -1587,6 +1725,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         getUserEffectivePermissions,
         clearUserCustomPermissions,
         login,
+        register,
         logout,
         switchUser,
         addUser,

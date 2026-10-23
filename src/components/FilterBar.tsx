@@ -12,12 +12,7 @@ import {
 } from 'lucide-react';
 
 export const FilterBar: React.FC = () => {
-  const { filters, setFilter, resetFilters, activeFilterCount, users, currentUser, records } = useApp();
-  const cityMap = new Map<string, string>();
-  records.forEach((record) => { const city = (record.instCity || '').trim(); if (city) cityMap.set(city.toLowerCase(), city); });
-  const cityOptions = Array.from(cityMap.values());
-  if (filters.instCity !== 'all' && filters.instCity && !cityOptions.some((city) => city.toLowerCase() === filters.instCity.toLowerCase())) cityOptions.push(filters.instCity);
-  cityOptions.sort((a, b) => a.localeCompare(b));
+  const { filters, setFilter, resetFilters, activeFilterCount, users, currentUser } = useApp();
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
   return (
@@ -188,14 +183,16 @@ export const FilterBar: React.FC = () => {
           <label className="block text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
             City
           </label>
-          <select
-            value={filters.instCity}
-            onChange={(e) => setFilter('instCity', e.target.value)}
-            className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px] cursor-pointer"
-          >
-            <option value="all">All Cities</option>
-            {cityOptions.map((city) => <option key={city} value={city}>{city}</option>)}
-          </select>
+          <input
+            type="text"
+            aria-label="Filter vehicle records by city"
+            value={filters.instCity === 'all' ? '' : filters.instCity}
+            onChange={(event) => setFilter('instCity', event.target.value || 'all')}
+            placeholder="All Cities — type a city"
+            autoComplete="off"
+            className="w-full min-w-0 text-xs py-2 px-2.5 bg-blue-50/70 border border-blue-200 rounded-md text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-500 min-h-[38px]"
+            title="Type any part of a city name to filter records"
+          />
         </div>
 
       </div>

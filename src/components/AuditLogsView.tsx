@@ -18,7 +18,7 @@ const actionStyle = (action: string) => {
 };
 
 export const AuditLogsView: React.FC = () => {
-  const { auditLogs } = useApp();
+  const { auditLogs, fetchAuditLogs } = useApp();
   const [logSearch, setLogSearch] = useState('');
   const [remoteLogs, setRemoteLogs] = useState<AuditLogEntry[] | null>(null);
   const [remoteTotal, setRemoteTotal] = useState<number | null>(null);
@@ -32,7 +32,7 @@ export const AuditLogsView: React.FC = () => {
     const controller = new AbortController();
     const now = new Date();
     const startOf = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
-    const endOf = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).toISOString();
+    const endOf = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).toISOString();
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     let from = '';
@@ -45,30 +45,26 @@ export const AuditLogsView: React.FC = () => {
       if (fromDate) from = new Date(`${fromDate}T00:00:00`).toISOString();
       if (toDate) to = new Date(`${toDate}T23:59:59.999`).toISOString();
     }
-    const params = new URLSearchParams({ take: '5000' });
-    if (from) params.set('from', from);
-    if (to) params.set('to', to);
-    if (logSearch.trim()) params.set('search', logSearch.trim());
     const timer = window.setTimeout(() => {
-      fetch(`/api/audit-logs?${params.toString()}`, { credentials: 'include', cache: 'no-store', signal: controller.signal })
-        .then(async (response) => {
-          if (!response.ok) throw new Error('Audit API unavailable');
-          return response.json();
-        })
-        .then((data) => {
-          if (cancelled) return;
-          if (data?.success && Array.isArray(data.logs)) {
-            setRemoteLogs(data.logs);
-            setRemoteTotal(typeof data.total === 'number' ? data.total : data.logs.length);
-          } else if (Array.isArray(data)) {
-            setRemoteLogs(data);
-            setRemoteTotal(data.length);
-          }
-        })
-        .catch((error) => { if (!cancelled && error?.name !== 'AbortError') { setRemoteLogs(null); setRemoteTotal(null); } });
+      void fetchAuditLogs({
+        from,
+        to,
+        search: logSearch,
+        take: 5000,
+        signal: controller.signal,
+      }).then((result) => {
+        if (cancelled) return;
+        if (result) {
+          setRemoteLogs(result.logs);
+          setRemoteTotal(result.total);
+        } else if (!controller.signal.aborted) {
+          setRemoteLogs(null);
+          setRemoteTotal(null);
+        }
+      });
     }, 180);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [datePreset, fromDate, toDate, logSearch]);
+  }, [datePreset, fromDate, toDate, logSearch, fetchAuditLogs]);
 
   const sourceLogs = remoteLogs ?? auditLogs;
 

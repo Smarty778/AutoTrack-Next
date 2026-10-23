@@ -274,7 +274,7 @@ export const CSVImportExportModal: React.FC<CSVModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[96dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="autotrack-modal-panel bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[96dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
         
         {/* Modal Header */}
         <div className="px-3.5 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">

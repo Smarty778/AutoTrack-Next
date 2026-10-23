@@ -1,44 +1,38 @@
-# AutoTrack CRM
+# AutoTrack CRM — Next.js + Prisma + PostgreSQL
 
-Next.js App Router application with Prisma and PostgreSQL. The server database is the source of truth; browser `localStorage` is only a local UI cache.
-
-## Requirements
-- Node.js 22 or newer
-- A PostgreSQL database (Supabase PostgreSQL is supported)
-- A unique `JWT_SECRET` of at least 32 characters
-- A separate `BOOTSTRAP_SECRET` for the initial admin bootstrap endpoint
+## Architecture
+- Next.js App Router UI and API routes.
+- `src/context/AppContext.tsx` is the client-side API gateway for authentication, registration, records, users, job cards, permissions and audit history. UI components call context methods instead of calling API endpoints directly.
+- API route handlers authenticate the signed HTTP-only `token` cookie and enforce role/record permissions on the server.
+- `src/proxy.ts` uses the Next.js 16 Proxy convention to redirect unauthenticated dashboard requests and signed-in users away from login/register pages. Proxy is a navigation guard only; route handlers still verify authorization themselves.
+- PostgreSQL is the source of truth. Local storage is a display cache only and is never used to authenticate a session.
 
 ## Setup
-1. Create an empty PostgreSQL database or choose the existing AutoTrack database.
-2. Copy `.env.example` to `.env` and fill in the real `DATABASE_URL`, `JWT_SECRET`, and `BOOTSTRAP_SECRET`.
-3. Install packages: `npm install` (or `yarn install`).
-4. Generate Prisma Client: `npm run db:generate`.
-5. Apply the tracked schema migration: `npm run db:deploy`.
-6. Start locally: `npm run dev`; open `http://localhost:3000`.
+1. Install Node.js 22 or newer.
+2. Copy `.env.example` to `.env`.
+3. Configure `DATABASE_URL`, `JWT_SECRET` (32+ characters, random) and a different `BOOTSTRAP_SECRET`.
+4. Install dependencies: `npm install`
+5. Generate Prisma Client: `npm run db:generate`
+6. On a **development database**, create/review the first migration: `npx prisma migrate dev --name init`
+7. Start locally: `npm run dev`
 
-`prisma/migrations/20261023000000_initial_schema/migration.sql` creates the current schema for a fresh database and safely adds the new permission-policy fields/table when the prior AutoTrack schema already exists. Before production use, take a database backup and inspect the migration against a staging database. Existing duplicate registration numbers must be cleaned before a unique registration-number constraint can be established.
+For production, commit and review migration files first, then deploy with `npm run db:deploy`. Do not use `migrate dev` against a production database.
 
-## Useful scripts
-- `npm run dev` — local development
-- `npm run build` — production compilation
-- `npm run start` — serve a production build
-- `npm run db:generate` — regenerate Prisma Client
-- `npm run db:migrate` — create/apply a development migration
-- `npm run db:deploy` — apply reviewed migrations in deployment
-- `npm run db:studio` — open Prisma Studio
+## Relevant API routes
+- `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/register`
+- `GET/POST/PATCH/DELETE /api/users`
+- `GET/POST /api/records` and `GET/PUT/DELETE /api/records/[id]`
+- `/api/permissions`, `/api/audit-logs`, `/api/status-logs`
+- `/api/job-cards` and `/api/job-cards/[id]`
 
-Do not run `db:migrate` against production. Use `db:deploy` after reviewing and testing migration files.
+## Responsive behavior
+- The profile dropdown is centered and constrained to the viewport on narrow devices.
+- Full-screen modals are centered and limited to the usable viewport with internal scrolling; the layout supports screens down to 320px.
+- City filtering is a highlighted free-text field and matches partial city names.
+- Vehicle `Make` is a plain free-text field, without a fixed datalist.
 
-## Main routes
-- `/login`, `/register`, `/dashboard`
-- `/api/auth/login`, `/api/auth/me`, `/api/auth/logout`, `/api/auth/register`
-- `/api/users`, `/api/permissions`
-- `/api/records`, `/api/records/[id]`
-- `/api/audit-logs`, `/api/status-logs`
-- `/api/job-cards`, `/api/job-cards/[id]`
-
-## Security notes
-- Passwords are bcrypt-hashed; the previous password cannot be displayed or recovered. Admins can reset a user's password.
-- Agent field-level permissions are enforced in both the UI and record mutation API.
-- Never commit `.env`, real database credentials, JWT secrets, or bootstrap secrets. Rotate any credentials that were included in previously shared archives.
-- Before production, verify login rate limiting, backups/restore, user role review, and authorization behavior against a real database.
+## Security
+- `.env` and `.env.local` must never be committed or shared. The supplied clean ZIP excludes `.env` and `.git`.
+- Rotate any database password and JWT/bootstrap secrets that were present in an earlier uploaded archive.
+- Existing password hashes cannot be reversed to recover a current password. Use the admin password reset endpoint.
+- Perform an end-to-end build and test against a development PostgreSQL database before deploying.

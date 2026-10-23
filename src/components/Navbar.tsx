@@ -127,7 +127,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="fixed inset-0 z-40" 
                   onClick={() => setUserDropdownOpen(false)} 
                 />
-                <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white rounded-lg shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+4.25rem)] z-50 user-profile-menu w-[calc(100vw-1rem)] max-w-sm -translate-x-1/2 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 shadow-2xl animate-in fade-in zoom-in-95 duration-100 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-72 md:max-w-[calc(100vw-1.5rem)] md:translate-x-0">
                   {/* Current Active Account Card */}
                   <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70">
                     <div className="flex items-center gap-2.5">
