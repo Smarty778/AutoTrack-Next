@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { TrackerRecord } from '../types';
-import { useApp, JobCard } from '../context/AppContext'; // adjust path if needed
+import { useApp, JobCard } from '../context/AppContext';
+import { CitySelectField } from './CitySelectField';
 import {
   X,
   Printer,
@@ -128,16 +129,16 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
         
         {/* Modal Top Bar (hidden during print) */}
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50 print:hidden">
-          <div className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm font-bold text-slate-800">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="shrink-0 text-xs sm:text-sm font-bold text-slate-800">
               Technician Job Card
             </span>
-            <span className="text-[10px] sm:text-[11px] text-slate-500 font-mono-numbers">
+            <span className="min-w-0 truncate text-[10px] sm:text-[11px] text-slate-500 font-mono-numbers">
               ({record.regNo} · {record.orderNo})
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
             {!showCreateForm && (
               <button
                 type="button"
@@ -172,7 +173,7 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
         <div className="flex-1 overflow-y-auto flex flex-col lg:flex-row">
           
           {/* LEFT SIDEBAR – Job Cards List (print:hidden) */}
-          <div className="w-full lg:w-64 border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50 print:hidden flex flex-col">
+          <div className="w-full min-w-0 lg:w-64 lg:shrink-0 border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50 print:hidden flex flex-col">
             <div className="px-3 py-2 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
               Job Cards ({recordJobCards.length})
             </div>
@@ -193,7 +194,7 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+              <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto overflow-y-hidden p-2 lg:flex-1 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto max-h-36 lg:max-h-none">
                 {recordJobCards.map((jc) => (
                   <button
                     key={jc.id}
@@ -202,7 +203,7 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
                       setSelectedJobCard(jc);
                       setShowCreateForm(false);
                     }}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs transition-colors ${
+                    className={`w-[210px] min-w-[210px] lg:w-full lg:min-w-0 shrink-0 text-left px-3 py-2.5 rounded-lg border text-xs transition-colors ${
                       activeCard?.id === jc.id && !showCreateForm
                         ? 'bg-white border-slate-400 shadow-sm'
                         : 'bg-white/60 border-slate-200 hover:bg-white'
@@ -238,7 +239,7 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
           </div>
 
           {/* RIGHT – Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="min-w-0 flex-1 overflow-y-auto">
             
             {/* CREATE FORM */}
             {showCreateForm ? (
@@ -277,11 +278,10 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
 
                   <div>
                     <label className="block text-slate-600 mb-1 font-medium">Installation City</label>
-                    <input
-                      type="text"
+                    <CitySelectField
                       value={form.installationCity}
-                      onChange={(e) => setForm({ ...form, installationCity: e.target.value })}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      onChange={(value) => setForm((prev) => ({ ...prev, installationCity: value }))}
+                      placeholder="Select installation city"
                     />
                   </div>
 
@@ -434,7 +434,7 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
                     <span className="font-mono-numbers">{record.regNo}</span>
                   </h3>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs">
+                  <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs">
                     <div>
                       <span className="text-slate-500 block text-[10px]">Customer Name</span>
                       <span className="font-bold text-slate-900">{record.customerName}</span>
@@ -476,7 +476,7 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
                     Hardware, Insurance &amp; Job Details
                   </h3>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs">
+                  <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs">
                     <div>
                       <span className="text-slate-500 block text-[10px]">Tracker Unit</span>
                       <span className="font-bold font-mono-numbers">{record.unit}</span>
@@ -566,7 +566,7 @@ export const JobCardModal: React.FC<JobCardModalProps> = ({
                 )}
 
                 {/* 5. Signatures */}
-                <div className="grid grid-cols-2 gap-6 sm:gap-8 pt-8 mt-6 border-t border-slate-200 text-xs">
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-6 sm:gap-8 pt-8 mt-6 border-t border-slate-200 text-xs">
                   <div className="text-center">
                     <div className="border-b border-slate-400 pb-1 mb-1 h-12 flex items-end justify-center font-medium">
                       {activeCard?.technicianName || record.technicianName}

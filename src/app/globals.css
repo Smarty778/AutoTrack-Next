@@ -30,3 +30,54 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Shared modal behavior: centered, scroll-safe, and usable from 320px screens upward. */
+html, body { min-width: 320px; width: 100%; }
+body { overflow-x: hidden; }
+*, *::before, *::after { box-sizing: border-box; }
+img, video, canvas, svg { max-width: 100%; }
+input, select, textarea, button { min-width: 0; }
+
+@media (max-width: 640px) {
+  .fixed.inset-0.z-50 {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .fixed.inset-0.z-50 > .bg-white {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    min-height: 0;
+    margin: auto;
+    border-radius: 14px;
+  }
+
+  .fixed.inset-0.z-50 > .bg-white > form,
+  .fixed.inset-0.z-50 > .bg-white > .overflow-y-auto,
+  .fixed.inset-0.z-50 > .bg-white .overflow-y-auto {
+    min-height: 0;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fixed.inset-0.z-50 > .bg-white table { min-width: max-content; }
+  .fixed.inset-0.z-50 input,
+  .fixed.inset-0.z-50 select,
+  .fixed.inset-0.z-50 textarea { max-width: 100%; font-size: 16px; }
+  .fixed.inset-0.z-50 button { touch-action: manipulation; }
+
+  .audit-view { min-height: 0; }
+  .audit-view .max-h-\[62dvh\] { max-height: 62dvh; }
+}
+
+@media print {
+  body { background: white !important; }
+  .fixed.inset-0.z-50 { position: static !important; inset: auto !important; padding: 0 !important; background: white !important; }
+  .fixed.inset-0.z-50 > .bg-white { width: 100% !important; max-width: none !important; max-height: none !important; overflow: visible !important; box-shadow: none !important; border: 0 !important; }
+}

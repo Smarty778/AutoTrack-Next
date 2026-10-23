@@ -72,8 +72,11 @@ model User {
 
 model AgentPermissions {
   id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String  @unique
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // false means this account inherits the global policy; true means an admin
+  // explicitly configured an individual override.
+  isCustom Boolean @default(false)
 
   // Service & Operational Permissions
   canEditStatus         Boolean @default(true)
@@ -267,4 +270,14 @@ model JobCard {
   @@index([recordId])
   @@index([technicianName])
   @@map("job_cards")
+}
+
+// Persistent application-wide settings (including the global agent permission policy).
+model AppSetting {
+  key       String   @id
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
 }

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrackerRecord } from '../types';
 import { useApp } from '../context/AppContext';
+import { CitySelectField } from './CitySelectField';
 import { X, Save, Car, Cpu, FileCheck, Lock, Clock } from 'lucide-react';
 
 interface RecordModalProps {
@@ -20,6 +21,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
   const isEditing = !!recordToEdit;
   const [activeTab, setActiveTab] = useState<'vehicle' | 'installation' | 'order'>('vehicle');
+  const [saving, setSaving] = useState(false);
 
   // Permission flags for field-level access control
   const isAdmin = currentUser.role === 'admin';
@@ -128,42 +130,51 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!formData.regNo.trim()) {
       alert('Please enter a Registration Number (or UNREG-...)');
+      setActiveTab('vehicle');
       return;
     }
     if (!formData.customerName.trim()) {
       alert('Please enter the Customer Name');
+      setActiveTab('vehicle');
       return;
     }
 
-    if (isEditing && recordToEdit) {
-      const statusChanged = formData.status !== recordToEdit.status;
-      updateRecord(recordToEdit.id, {
-        ...formData,
-        ...(statusChanged ? {
+    setSaving(true);
+    try {
+      let saved = false;
+      if (isEditing && recordToEdit) {
+        const statusChanged = formData.status !== recordToEdit.status;
+        saved = await updateRecord(recordToEdit.id, {
+          ...formData,
+          ...(statusChanged ? {
+            statusChangedAt: new Date().toISOString(),
+            statusChangedBy: currentUser.username || currentUser.name,
+            statusChangedByUserId: currentUser.id,
+            statusChangedRecordId: recordToEdit.id,
+          } : {
+            statusChangedAt: recordToEdit.statusChangedAt,
+            statusChangedBy: recordToEdit.statusChangedBy,
+            statusChangedByUserId: recordToEdit.statusChangedByUserId,
+            statusChangedRecordId: recordToEdit.statusChangedRecordId,
+          }),
+        });
+      } else {
+        saved = await addRecord({
+          ...formData,
           statusChangedAt: new Date().toISOString(),
           statusChangedBy: currentUser.username || currentUser.name,
           statusChangedByUserId: currentUser.id,
-          statusChangedRecordId: recordToEdit.id,
-        } : {
-          statusChangedAt: recordToEdit.statusChangedAt,
-          statusChangedBy: recordToEdit.statusChangedBy,
-          statusChangedByUserId: recordToEdit.statusChangedByUserId,
-          statusChangedRecordId: recordToEdit.statusChangedRecordId,
-        })
-      });
-    } else {
-      addRecord({
-        ...formData,
-        statusChangedAt: new Date().toISOString(),
-        statusChangedBy: currentUser.username || currentUser.name,
-        statusChangedByUserId: currentUser.id,
-      });
+        });
+      }
+      if (saved) onClose();
+    } finally {
+      setSaving(false);
     }
-    onClose();
   };
 
   const canEditAnyField = isAdmin || canEditVehicle || canEditContact || canEditEngine || canEditHardware || canEditTrackerState || canEditTechCity || canEditOrderDates || canEditStatusField || canEditDueDateField || canEditIns || canEditNotes;
@@ -336,7 +347,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
+              <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="font-semibold text-slate-700">3. Make</label>
@@ -576,25 +587,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     <label className="font-semibold text-slate-700">16. Inst. City</label>
                     {!canEditTechCity && <LockIcon />}
                   </div>
-                  <input
-                    type="text"
-                    name="instCity"
-                    list="city-list"
-                    disabled={!canEditTechCity}
+                  <CitySelectField
                     value={formData.instCity}
-                    onChange={handleChange}
-                    placeholder="Karachi, Lahore..."
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-slate-900 min-h-[38px] ${
-                      canEditTechCity ? 'bg-slate-50 text-slate-800 border-slate-200' : lockStyle
-                    }`}
+                    onChange={(value) => setFormData((prev) => ({ ...prev, instCity: value }))}
+                    disabled={!canEditTechCity}
+                    placeholder="Select installation city"
+                    className={!canEditTechCity ? lockStyle : ''}
                   />
-                  <datalist id="city-list">
-                    <option value="Karachi" />
-                    <option value="Lahore" />
-                    <option value="Islamabad" />
-                    <option value="Rawalpindi" />
-                    <option value="Faisalabad" />
-                  </datalist>
                 </div>
 
                 <div>
@@ -897,10 +896,11 @@ export const RecordModal: React.FC<RecordModalProps> = ({
               ) : (
                 <button
                   type="submit"
-                  className="flex-1 sm:flex-none px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-850 transition-colors flex items-center justify-center gap-1.5 font-semibold shadow-2xs cursor-pointer min-h-[40px] text-xs"
+                  disabled={saving}
+                  className="flex-1 sm:flex-none px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-850 disabled:opacity-60 disabled:cursor-wait transition-colors flex items-center justify-center gap-1.5 font-semibold shadow-2xs cursor-pointer min-h-[40px] text-xs"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{isEditing ? 'Save Changes' : 'Create Record'}</span>
+                  <span>{saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Record'}</span>
                 </button>
               )}
             </div>

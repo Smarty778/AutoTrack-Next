@@ -12,7 +12,12 @@ import {
 } from 'lucide-react';
 
 export const FilterBar: React.FC = () => {
-  const { filters, setFilter, resetFilters, activeFilterCount, users, currentUser } = useApp();
+  const { filters, setFilter, resetFilters, activeFilterCount, users, currentUser, records } = useApp();
+  const cityMap = new Map<string, string>();
+  records.forEach((record) => { const city = (record.instCity || '').trim(); if (city) cityMap.set(city.toLowerCase(), city); });
+  const cityOptions = Array.from(cityMap.values());
+  if (filters.instCity !== 'all' && filters.instCity && !cityOptions.some((city) => city.toLowerCase() === filters.instCity.toLowerCase())) cityOptions.push(filters.instCity);
+  cityOptions.sort((a, b) => a.localeCompare(b));
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
   return (
@@ -189,13 +194,7 @@ export const FilterBar: React.FC = () => {
             className="w-full text-xs py-2 px-2 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px] cursor-pointer"
           >
             <option value="all">All Cities</option>
-            <option value="Karachi">Karachi</option>
-            <option value="Lahore">Lahore</option>
-            <option value="Islamabad">Islamabad</option>
-            <option value="Rawalpindi">Rawalpindi</option>
-            <option value="Faisalabad">Faisalabad</option>
-            <option value="Multan">Multan</option>
-            <option value="Peshawar">Peshawar</option>
+            {cityOptions.map((city) => <option key={city} value={city}>{city}</option>)}
           </select>
         </div>
 

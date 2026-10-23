@@ -2,13 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 import { sanitizeRecordInput } from '@/lib/record-mappers';
+import { getEffectiveAgentPermissions } from '@/lib/permissions';
 
 export async function GET(req: NextRequest) {
   const auth = verifyAuth(req);
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
+    const actor = auth.role === 'ADMIN'
+      ? null
+      : await prisma.user.findUnique({ where: { id: auth.id }, select: { name: true } });
+    const where = auth.role === 'ADMIN'
+      ? {}
+      : {
+          OR: [
+            { assignedToUserId: auth.id },
+            ...(actor?.name ? [{ salesPerson: { equals: actor.name, mode: 'insensitive' as const } }] : []),
+            { salesPerson: { equals: auth.username, mode: 'insensitive' as const } },
+          ],
+        };
     const records = await prisma.trackerRecord.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       include: {
         assignedToUser: { select: { id: true, name: true, username: true } },
@@ -25,8 +39,22 @@ export async function POST(req: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'A valid JSON object is required' }, { status: 400 });
+    }
     const data = sanitizeRecordInput(body);
+
+    if (auth.role !== 'ADMIN') {
+      const policy = await getEffectiveAgentPermissions(auth.id);
+      if (!policy.canCreateNewRecords) {
+        return NextResponse.json({ error: 'Your account is not allowed to create vehicle records' }, { status: 403 });
+      }
+      const actor = await prisma.user.findUnique({ where: { id: auth.id }, select: { name: true } });
+      data.assignedToUserId = auth.id;
+      data.salesPerson = actor?.name || auth.username;
+      data.coordinatedBy = actor?.name || auth.username;
+    }
 
     // required fields check (optional but useful)
     if (!data.regNo || !data.customerName) {

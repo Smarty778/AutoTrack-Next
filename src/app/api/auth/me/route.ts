@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
             canCreateNewRecords: true,
             canDeleteRecords: true,
             canReassignSalesPerson: true,
+            isCustom: true,
           },
         },
       },
@@ -50,13 +51,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'User not found or inactive' }, { status: 404 });
     }
 
+    const { customPermissions, ...safeUser } = user;
+    const permissions = customPermissions?.isCustom
+      ? Object.fromEntries(Object.entries(customPermissions).filter(([key]) => key !== 'isCustom' && key !== 'id' && key !== 'userId' && key !== 'createdAt' && key !== 'updatedAt'))
+      : null;
     return NextResponse.json({
       success: true,
-      user: {
-        ...user,
-        role: user.role.toLowerCase(),
-        permissions: user.customPermissions,
-      },
+      user: { ...safeUser, role: safeUser.role.toLowerCase(), customPermissions: permissions, permissions },
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });

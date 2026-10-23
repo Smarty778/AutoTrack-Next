@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { UserProfile } from '../types';
+import { CitySelectField } from './CitySelectField';
+import { UserProfile, AgentPermissions, PermissionPreset } from '../types';
 import { 
   Users, 
   UserPlus, 
@@ -20,6 +21,21 @@ import {
   Trash2
 } from 'lucide-react';
 
+
+const POLICY_PRESETS: Record<PermissionPreset, AgentPermissions> = {
+  readonly: { canEditStatus:false, canEditTrackerStatus:false, canEditRemarks:false, canEditDueDate:false, canEditContactInfo:false, canEditInsurance:false, canEditVehicleSpecs:false, canEditEngineChassis:false, canEditHardwareUnit:false, canEditTechnicianCity:false, canEditOrderNoDate:false, canCreateNewRecords:false, canDeleteRecords:false, canReassignSalesPerson:false },
+  strict: { canEditStatus:true, canEditTrackerStatus:false, canEditRemarks:true, canEditDueDate:true, canEditContactInfo:false, canEditInsurance:false, canEditVehicleSpecs:false, canEditEngineChassis:false, canEditHardwareUnit:false, canEditTechnicianCity:false, canEditOrderNoDate:false, canCreateNewRecords:false, canDeleteRecords:false, canReassignSalesPerson:false },
+  standard: { canEditStatus:true, canEditTrackerStatus:true, canEditRemarks:true, canEditDueDate:true, canEditContactInfo:true, canEditInsurance:true, canEditVehicleSpecs:false, canEditEngineChassis:false, canEditHardwareUnit:false, canEditTechnicianCity:false, canEditOrderNoDate:false, canCreateNewRecords:true, canDeleteRecords:false, canReassignSalesPerson:false },
+  full: { canEditStatus:true, canEditTrackerStatus:true, canEditRemarks:true, canEditDueDate:true, canEditContactInfo:true, canEditInsurance:true, canEditVehicleSpecs:true, canEditEngineChassis:true, canEditHardwareUnit:true, canEditTechnicianCity:true, canEditOrderNoDate:true, canCreateNewRecords:true, canDeleteRecords:false, canReassignSalesPerson:false },
+};
+const samePolicy = (actual: AgentPermissions, preset: PermissionPreset) =>
+  Object.keys(POLICY_PRESETS[preset]).every((key) => actual[key as keyof AgentPermissions] === POLICY_PRESETS[preset][key as keyof AgentPermissions]);
+const policyButtonClass = (actual: AgentPermissions, preset: PermissionPreset) => {
+  const active = samePolicy(actual, preset);
+  const activeColor = preset === 'readonly' ? 'bg-slate-900 text-white border-slate-900' : preset === 'strict' ? 'bg-amber-100 text-amber-900 border-amber-300' : preset === 'standard' ? 'bg-blue-100 text-blue-900 border-blue-400' : 'bg-emerald-100 text-emerald-900 border-emerald-400';
+  return `px-2.5 py-1 rounded border text-[11px] font-semibold shadow-2xs cursor-pointer min-h-[32px] transition-colors ${active ? activeColor : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'}`;
+};
+
 interface TeamManagementViewProps {
   onNavigateToSpreadsheetWithFilter: (salesPersonName: string) => void;
   onOpenPermissionsModal?: (targetUserId?: string) => void;
@@ -29,7 +45,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
   onNavigateToSpreadsheetWithFilter,
   onOpenPermissionsModal,
 }) => {
-  const { users, records, addUser, updateUserPassword, resetAgentPermissionsToPreset, factoryResetPortal, deleteUser } = useApp();
+  const { users, records, addUser, updateUserPassword, resetAgentPermissionsToPreset, factoryResetPortal, deleteUser, globalAgentPermissions } = useApp();
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [passwordModalUser, setPasswordModalUser] = useState<UserProfile | null>(null);
   const [newPasswordValue, setNewPasswordValue] = useState('');
@@ -39,7 +55,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
   const [newUserForm, setNewUserForm] = useState({
     name: '',
     username: '',
-    password: '123',
+    password: '',
     email: '',
     phone: '+92 300 ',
     city: 'Lahore',
@@ -48,54 +64,48 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
   const today = new Date().toISOString().split('T')[0];
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUserForm.name.trim() || !newUserForm.username.trim()) {
-      alert('Please fill in Name and Username');
+    if (!newUserForm.name.trim() || !newUserForm.username.trim() || newUserForm.password.length < 8) {
+      alert('Name, username and a password of at least 8 characters are required.');
       return;
     }
 
-    const avatarColors = [
-      'bg-blue-600',
-      'bg-emerald-600',
-      'bg-amber-600',
-      'bg-indigo-600',
-      'bg-purple-600',
-      'bg-rose-600',
-      'bg-teal-600',
-    ];
+    const avatarColors = ['bg-blue-600', 'bg-emerald-600', 'bg-amber-600', 'bg-indigo-600', 'bg-purple-600', 'bg-rose-600', 'bg-teal-600'];
     const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
-
-    addUser({
+    const created = await addUser({
       name: newUserForm.name.trim(),
       username: newUserForm.username.trim().toLowerCase(),
-      password: newUserForm.password || '123',
+      password: newUserForm.password,
       email: newUserForm.email.trim() || `${newUserForm.username.trim().toLowerCase()}@autotrack.com`,
-      phone: newUserForm.phone,
-      city: newUserForm.city,
+      phone: newUserForm.phone.trim(),
+      city: newUserForm.city.trim(),
       role: newUserForm.role,
       avatarColor: randomColor,
       active: true,
     });
-
-    setNewUserForm({
-      name: '',
-      username: '',
-      password: '123',
-      email: '',
-      phone: '+92 300 ',
-      city: 'Lahore',
-      role: 'user',
-    });
+    if (!created) {
+      alert('The account was not saved. Check that you are an admin, the username/email are unique, and the server/database are available.');
+      return;
+    }
+    setNewUserForm({ name: '', username: '', password: '', email: '', phone: '+92 300 ', city: 'Lahore', role: 'user' });
     setShowAddUserModal(false);
   };
 
-  const handleSavePassword = (e: React.FormEvent) => {
+  const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!passwordModalUser || !newPasswordValue.trim()) return;
-    updateUserPassword(passwordModalUser.id, newPasswordValue.trim());
+    if (!passwordModalUser || newPasswordValue.length < 8) {
+      alert('Use at least 8 characters for the new password.');
+      return;
+    }
+    const saved = await updateUserPassword(passwordModalUser.id, newPasswordValue);
+    if (!saved) {
+      alert('Password reset failed. Please check admin access and database connection.');
+      return;
+    }
     setPasswordModalUser(null);
     setNewPasswordValue('');
+    alert('Password reset successfully. The old password cannot be recovered or displayed.');
   };
 
   const salesUsers = users.filter(u => u.role === 'user');
@@ -163,32 +173,32 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
               <span className="text-slate-500 font-medium text-[10px] sm:text-[11px] w-full sm:w-auto">Quick Policies:</span>
               <button
                 type="button"
-                onClick={() => resetAgentPermissionsToPreset('readonly')}
-                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-medium text-[11px] shadow-2xs cursor-pointer min-h-[30px]"
+                onClick={async () => { if (!(await resetAgentPermissionsToPreset('readonly'))) alert('Could not save the permission policy. Check your admin session and database connection.'); }}
+                className={policyButtonClass(globalAgentPermissions, 'readonly')}
                 title="Agents can only view, no edits"
               >
                 Read-Only
               </button>
               <button
                 type="button"
-                onClick={() => resetAgentPermissionsToPreset('strict')}
-                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-medium text-[11px] shadow-2xs cursor-pointer min-h-[30px]"
+                onClick={async () => { if (!(await resetAgentPermissionsToPreset('strict'))) alert('Could not save the permission policy. Check your admin session and database connection.'); }}
+                className={policyButtonClass(globalAgentPermissions, 'strict')}
                 title="Only remarks & due date"
               >
                 Strict (Notes Only)
               </button>
               <button
                 type="button"
-                onClick={() => resetAgentPermissionsToPreset('standard')}
-                className="px-2.5 py-1 bg-blue-50 border border-blue-300 hover:bg-blue-100 text-blue-800 rounded font-semibold text-[11px] shadow-2xs cursor-pointer min-h-[30px]"
+                onClick={async () => { if (!(await resetAgentPermissionsToPreset('standard'))) alert('Could not save the permission policy. Check your admin session and database connection.'); }}
+                className={policyButtonClass(globalAgentPermissions, 'standard')}
                 title="Status + Tracker Health + Remarks + Contacts"
               >
                 Standard (Recommended)
               </button>
               <button
                 type="button"
-                onClick={() => resetAgentPermissionsToPreset('full')}
-                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-medium text-[11px] shadow-2xs cursor-pointer min-h-[30px]"
+                onClick={async () => { if (!(await resetAgentPermissionsToPreset('full'))) alert('Could not save the permission policy. Check your admin session and database connection.'); }}
+                className={policyButtonClass(globalAgentPermissions, 'full')}
                 title="All vehicle fields editable"
               >
                 Full Vehicle Edit
@@ -296,13 +306,13 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                       type="button"
                       onClick={() => {
                         setPasswordModalUser(user);
-                        setNewPasswordValue(user.password || '');
+                        setNewPasswordValue('');
                       }}
                       className="text-[11px] text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 ml-2 shrink-0 cursor-pointer"
-                      title="View or Change Password"
+                      title="Reset this account password"
                     >
                       <Key className="w-3 h-3" />
-                      <span>Password</span>
+                      <span>Reset</span>
                     </button>
                   </div>
                 </div>
@@ -358,13 +368,13 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                   type="button"
                   onClick={() => {
                     setPasswordModalUser(user);
-                    setNewPasswordValue(user.password || '');
+                    setNewPasswordValue('');
                   }}
                   className="w-full py-1.5 px-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-md font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-h-[36px]"
-                  title="View or change password for this account"
+                  title="Set a new password for this account"
                 >
                   <Key className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>Account Password &amp; Credentials</span>
+                  <span>Reset Account Password</span>
                 </button>
 
                 <div className="bg-slate-50 border border-slate-200/80 rounded-md p-2 text-[11px] text-slate-600 space-y-1">
@@ -440,11 +450,13 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Password *</label>
                   <input
-                    type="text"
+                    type="password"
                     required
+                    minLength={8}
+                    autoComplete="new-password"
                     value={newUserForm.password}
                     onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
-                    placeholder="e.g. 123"
+                    placeholder="At least 8 characters"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-slate-900 text-slate-800 font-mono-numbers min-h-[38px]"
                   />
                 </div>
@@ -474,12 +486,10 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">City / Region</label>
-                  <input
-                    type="text"
+                  <CitySelectField
                     value={newUserForm.city}
-                    onChange={(e) => setNewUserForm(prev => ({ ...prev, city: e.target.value }))}
-                    placeholder="e.g. Karachi"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-slate-900 text-slate-800 min-h-[38px]"
+                    onChange={(city) => setNewUserForm(prev => ({ ...prev, city }))}
+                    placeholder="Select city"
                   />
                 </div>
               </div>
@@ -507,10 +517,10 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
       {/* Change Password Modal */}
       {passwordModalUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm max-h-[96dvh] overflow-y-auto overscroll-contain">
             <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <span className="font-bold text-slate-900 text-xs sm:text-sm truncate mr-2">
-                Change Password for {passwordModalUser.name}
+                Reset Password for {passwordModalUser.name}
               </span>
               <button
                 type="button"
@@ -522,19 +532,22 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
             </div>
 
             <form onSubmit={handleSavePassword} className="p-4 sm:p-5 space-y-3.5 text-xs">
-              <div className="bg-slate-50 p-2.5 rounded border border-slate-200">
+              <div className="bg-slate-50 p-2.5 rounded border border-slate-200 space-y-1">
                 <span className="text-slate-500 block">User ID:</span>
                 <span className="font-mono font-bold text-slate-800">@{passwordModalUser.username}</span>
+                <p className="pt-1 text-[11px] leading-relaxed text-amber-800">For security, the old password is not stored in readable form. Set a new password below.</p>
               </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">New Password</label>
                 <input
-                  type="text"
+                  type="password"
                   required
+                  minLength={8}
+                  autoComplete="new-password"
                   value={newPasswordValue}
                   onChange={(e) => setNewPasswordValue(e.target.value)}
-                  placeholder="Enter new password"
+                  placeholder="Enter new password (8+ characters)"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-slate-900 text-slate-800 font-mono min-h-[38px]"
                 />
               </div>
@@ -600,9 +613,10 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    deleteUser(userToDelete.id);
-                    setUserToDelete(null);
+                  onClick={async () => {
+                    const deleted = await deleteUser(userToDelete.id);
+                    if (deleted) setUserToDelete(null);
+                    else alert('Delete failed. Check admin access and ensure this is not the last admin account.');
                   }}
                   className="px-3.5 py-1.5 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 shadow-2xs cursor-pointer flex items-center gap-1.5 min-h-[36px]"
                 >

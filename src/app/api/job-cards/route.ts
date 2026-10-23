@@ -13,8 +13,10 @@ export async function GET(req: NextRequest) {
     const recordId = searchParams.get('recordId');
     const status = searchParams.get('status');
     const technician = searchParams.get('technician');
-    const limit = Math.min(Number(searchParams.get('limit') || 50), 200);
-    const page = Math.max(Number(searchParams.get('page') || 1), 1);
+    const requestedLimit = Number(searchParams.get('limit') || 50);
+    const requestedPage = Number(searchParams.get('page') || 1);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 200) : 50;
+    const page = Number.isFinite(requestedPage) ? Math.max(Math.floor(requestedPage), 1) : 1;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -30,8 +32,15 @@ export async function GET(req: NextRequest) {
 
     // Non-admin: only job cards of records assigned to them
     if (auth.role !== 'ADMIN') {
+      const actor = await prisma.user.findUnique({ where: { id: auth.id }, select: { name: true } });
+      const ownerNames = [actor?.name, auth.username].filter(Boolean).map((value) => String(value));
       const assignedRecords = await prisma.trackerRecord.findMany({
-        where: { assignedToUserId: auth.id },
+        where: {
+          OR: [
+            { assignedToUserId: auth.id },
+            ...ownerNames.map((name) => ({ salesPerson: { equals: name, mode: 'insensitive' as const } })),
+          ],
+        },
         select: { id: true },
       });
       const allowedIds = assignedRecords.map((r) => r.id);
@@ -112,11 +121,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Non-admin can only create job cards for their assigned records
-    if (
-      auth.role !== 'ADMIN' &&
-      record.assignedToUserId !== auth.id
-    ) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (auth.role !== 'ADMIN' && record.assignedToUserId !== auth.id) {
+      const actor = await prisma.user.findUnique({ where: { id: auth.id }, select: { name: true } });
+      const ownerNames = [actor?.name, auth.username].filter(Boolean).map((value) => String(value).trim().toLowerCase());
+      if (!ownerNames.includes(String(record.salesPerson || '').trim().toLowerCase())) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     // Generate unique jobCardNo (e.g. JC-20261022-001)

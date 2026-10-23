@@ -71,9 +71,8 @@ export async function POST(req: NextRequest) {
         city,
         role: 'USER',
         active: true,
-        customPermissions: { create: {} }, // schema defaults
       },
-      include: { customPermissions: true },
+      include: { customPermissions: { select: { isCustom: true } } },
     });
 
     // Audit failure must not turn a successful sign-up into an error.
@@ -107,7 +106,8 @@ export async function POST(req: NextRequest) {
           phone: user.phone,
           avatarColor: user.avatarColor,
           active: user.active,
-          permissions: user.customPermissions,
+          permissions: null,
+          customPermissions: null,
         },
       },
       { status: 201 }

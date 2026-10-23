@@ -99,15 +99,15 @@ interface AppContextType {
   activeFilterCount: number;
 
   // Assignment & Record Mutations
-  assignRecords: (recordIds: string[], targetUserId: string, targetUserName: string) => void;
-  updateRecord: (id: string, updates: Partial<TrackerRecord>) => void;
-  addRecord: (record: Omit<TrackerRecord, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  deleteRecords: (recordIds: string[]) => void;
-  batchUpdateStatus: (recordIds: string[], status: TrackerRecord['status']) => void;
+  assignRecords: (recordIds: string[], targetUserId: string, targetUserName: string) => Promise<boolean>;
+  updateRecord: (id: string, updates: Partial<TrackerRecord>) => Promise<boolean>;
+  addRecord: (record: Omit<TrackerRecord, 'id' | 'createdAt' | 'updatedAt'>) => Promise<boolean>;
+  deleteRecords: (recordIds: string[]) => Promise<boolean>;
+  batchUpdateStatus: (recordIds: string[], status: TrackerRecord['status']) => Promise<boolean>;
   batchUpdateTrackerStatus: (
     recordIds: string[],
     trackerStatus: TrackerRecord['trackerStatus']
-  ) => void;
+  ) => Promise<boolean>;
 
   // Status Logs
   fetchStatusLogs: (recordId?: string) => Promise<void>;
@@ -119,10 +119,10 @@ interface AppContextType {
   deleteJobCard: (id: string) => Promise<boolean>;
 
   // Agent Permissions Management (Admin control)
-  updateAgentPermissions: (updates: Partial<AgentPermissions>, targetUserId?: string) => void;
-  resetAgentPermissionsToPreset: (preset: PermissionPreset, targetUserId?: string) => void;
+  updateAgentPermissions: (updates: Partial<AgentPermissions>, targetUserId?: string) => Promise<boolean>;
+  resetAgentPermissionsToPreset: (preset: PermissionPreset, targetUserId?: string) => Promise<boolean>;
   getUserEffectivePermissions: (userId: string) => AgentPermissions;
-  clearUserCustomPermissions: (userId: string) => void;
+  clearUserCustomPermissions: (userId: string) => Promise<boolean>;
 
   // User management & Authentication
   login: (
@@ -131,10 +131,10 @@ interface AppContextType {
   ) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   switchUser: (userId: string) => void;
-  addUser: (user: Omit<UserProfile, 'id'>) => void;
-  updateUserPassword: (userId: string, newPass: string) => void;
-  toggleUserActive: (userId: string) => void;
-  deleteUser: (userId: string) => void;
+  addUser: (user: Omit<UserProfile, 'id'>) => Promise<boolean>;
+  updateUserPassword: (userId: string, newPass: string) => Promise<boolean>;
+  toggleUserActive: (userId: string) => Promise<boolean>;
+  deleteUser: (userId: string) => Promise<boolean>;
 
   // Data management
   importRecords: (newRecords: TrackerRecord[], mode: 'append' | 'replace') => void;
@@ -170,7 +170,6 @@ const EMPTY_USER = {
   name: 'Guest',
   username: '',
   email: '',
-  password: '',
   role: 'user',
   active: false,
 } as UserProfile;
@@ -216,13 +215,15 @@ const normalizeRecordFromApi = (r: any): TrackerRecord => ({
   updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : undefined,
 });
 
-const normalizeUserFromApi = (u: any): UserProfile =>
-  ({
-    ...u,
-    role: String(u.role).toLowerCase() === 'admin' ? 'admin' : 'user',
-    active: u.active !== false,
-    customPermissions: u.permissions ?? u.customPermissions,
-  }) as UserProfile;
+const normalizeUserFromApi = (u: any): UserProfile => {
+  const { password: _legacyPassword, passwordHash: _neverExposeHash, permissions, ...safeUser } = u ?? {};
+  return {
+    ...safeUser,
+    role: String(safeUser.role).toLowerCase() === 'admin' ? 'admin' : 'user',
+    active: safeUser.active !== false,
+    customPermissions: permissions ?? safeUser.customPermissions ?? undefined,
+  } as UserProfile;
+};
 
 const normalizeStatusLogFromApi = (log: any): StatusChangeLog => ({
   ...log,
@@ -283,11 +284,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   // --------------------------------------------------
   const syncFromApi = useCallback(async () => {
     try {
-      const [meRes, usersRes, recordsRes, logsRes] = await Promise.allSettled([
+      const [meRes, usersRes, recordsRes, logsRes, permissionsRes] = await Promise.allSettled([
         fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' }),
         fetch('/api/users', { credentials: 'include', cache: 'no-store' }),
         fetch('/api/records', { credentials: 'include', cache: 'no-store' }),
         fetch('/api/audit-logs', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/permissions', { credentials: 'include', cache: 'no-store' }),
       ]);
 
       // Users
@@ -329,8 +331,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       // Audit Logs
       if (logsRes.status === 'fulfilled' && logsRes.value.ok) {
         const apiLogs = await logsRes.value.json();
-        if (Array.isArray(apiLogs)) {
-          setAuditLogs(apiLogs);
+        if (Array.isArray(apiLogs)) setAuditLogs(apiLogs);
+      }
+
+      // Global permissions are server-persisted; the browser cache is only a fallback.
+      if (permissionsRes.status === 'fulfilled' && permissionsRes.value.ok) {
+        const policyData = await permissionsRes.value.json();
+        if (policyData?.success && policyData?.permissions) {
+          setAgentPermissions(policyData.permissions as AgentPermissions);
         }
       }
     } catch {
@@ -350,9 +358,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     const savedUsers =
-      read<UserProfile[]>(STORAGE_KEYS.USERS)?.map((u) =>
-        (u.role as string) === 'sales' ? { ...u, role: 'user' as const } : u
-      ) ?? null;
+      read<UserProfile[]>(STORAGE_KEYS.USERS)?.map((u) => {
+        const { password: _legacyPassword, ...safeUser } = u as UserProfile;
+        return (safeUser.role as string) === 'sales' ? { ...safeUser, role: 'user' as const } : safeUser;
+      }) ?? null;
     const savedRecords = read<TrackerRecord[]>(STORAGE_KEYS.RECORDS);
     const savedLogs = read<AuditLogEntry[]>(STORAGE_KEYS.LOGS);
     const savedPerms = read<AgentPermissions>(STORAGE_KEYS.PERMISSIONS);
@@ -423,7 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [isHydrated, lastStatusChange]);
 
   useEffect(() => {
-    if (isHydrated) localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    if (isHydrated) localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users.map((item) => { const { password: _legacyPassword, ...safeUser } = item as UserProfile & { passwordHash?: string }; return safeUser; })));
   }, [isHydrated, users]);
 
   useEffect(() => {
@@ -575,103 +584,127 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         `Active session switched to ${user.name} (${user.role.toUpperCase()})`
       );
 
-      if (user.password) {
-        fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            username: user.username,
-            password: user.password,
-          }),
-        }).catch(() => {});
-      }
+      // The server session is authoritative. Never use cached/local user passwords
+      // to switch identities; sign out and authenticate with the selected account.
     }
   };
 
   // --------------------------------------------------
   // User management
   // --------------------------------------------------
-  const addUser = (userData: Omit<UserProfile, 'id'>) => {
+  const addUser = async (userData: Omit<UserProfile, 'id'>): Promise<boolean> => {
+    const password = typeof userData.password === 'string' ? userData.password : '';
+    if (password.length < 8) return false;
+    const { password: _secret, ...publicUserData } = userData;
     const tempId = `user-${Date.now().toString(36)}`;
-    const newUser: UserProfile = {
-      ...userData,
-      id: tempId,
-      password: userData.password || '123',
-    };
-    setUsers((prev) => [...prev, newUser]);
-    addAuditLog(
-      'User Created',
-      `Created user account for ${newUser.name} (@${newUser.username})`
-    );
+    const temporaryUser: UserProfile = { ...publicUserData, id: tempId, customPermissions: undefined };
+    setUsers((prev) => [...prev, temporaryUser]);
 
-    fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        name: newUser.name,
-        username: newUser.username,
-        email: newUser.email,
-        password: newUser.password,
-        role: newUser.role,
-        city: newUser.city,
-        phone: newUser.phone,
-        avatarColor: newUser.avatarColor,
-      }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.success && data?.user?.id) {
-          setUsers((prev) =>
-            prev.map((u) => (u.id === tempId ? { ...u, id: data.user.id } : u))
-          );
-        }
-      })
-      .catch(() => {});
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: temporaryUser.name,
+          username: temporaryUser.username,
+          email: temporaryUser.email,
+          password,
+          role: temporaryUser.role,
+          city: temporaryUser.city,
+          phone: temporaryUser.phone,
+          avatarColor: temporaryUser.avatarColor,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success || !result.user?.id) {
+        setUsers((prev) => prev.filter((u) => u.id !== tempId));
+        console.error('User creation failed:', result?.message || response.statusText);
+        return false;
+      }
+      const savedUser = normalizeUserFromApi(result.user);
+      setUsers((prev) => prev.map((u) => (u.id === tempId ? savedUser : u)));
+      addAuditLog('User Created', `Created user account for ${savedUser.name} (@${savedUser.username})`);
+      return true;
+    } catch (error) {
+      setUsers((prev) => prev.filter((u) => u.id !== tempId));
+      console.error('User creation request failed:', error);
+      return false;
+    }
   };
 
-  const updateUserPassword = (userId: string, newPass: string) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, password: newPass } : u))
-    );
-    addAuditLog('Password Changed', `Updated password for user ID ${userId}`);
+  const updateUserPassword = async (userId: string, newPass: string): Promise<boolean> => {
+    if (newPass.length < 8) return false;
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId, newPassword: newPass }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) return false;
+      // Do not put password material into application state or localStorage.
+      setUsers((prev) => prev.map((u) => {
+        if (u.id !== userId) return u;
+        const { password: _oldPassword, ...safeUser } = u;
+        return safeUser;
+      }));
+      const target = users.find((u) => u.id === userId);
+      addAuditLog('Password Reset', `Admin reset the password for ${target?.username || userId}.`);
+      return true;
+    } catch (error) {
+      console.error('Password reset request failed:', error);
+      return false;
+    }
   };
 
-  const toggleUserActive = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, active: !u.active } : u))
-    );
+  const toggleUserActive = async (userId: string): Promise<boolean> => {
+    const target = users.find((u) => u.id === userId);
+    if (!target) return false;
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId, active: !target.active }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) return false;
+      setUsers((prev) => prev.map((u) => u.id === userId ? normalizeUserFromApi(result.user) : u));
+      addAuditLog('User Status Changed', `${target.username} was ${!target.active ? 'activated' : 'deactivated'}.`);
+      return true;
+    } catch (error) {
+      console.error('User status update failed:', error);
+      return false;
+    }
   };
 
-  const deleteUser = (userId: string) => {
+  const deleteUser = async (userId: string): Promise<boolean> => {
     const targetUser = users.find((u) => u.id === userId);
-    if (
-      targetUser?.role === 'admin' &&
-      users.filter((u) => u.role === 'admin').length <= 1
-    )
-      return;
-
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
-    setRecords((prev) =>
-      prev.map((r) =>
-        r.assignedToUserId === userId
-          ? {
-              ...r,
-              assignedToUserId: undefined,
-              coordinatedBy: 'Unassigned',
-              updatedAt: new Date().toISOString(),
-            }
-          : r
-      )
-    );
-    addAuditLog(
-      'User Deleted',
-      `Deleted user account for ${targetUser?.name || userId}`
-    );
-    if (currentUserId === userId) {
-      setCurrentUserId('');
-      setIsAuthenticated(false);
+    if (!targetUser || (targetUser.role === 'admin' && users.filter((u) => u.role === 'admin').length <= 1)) return false;
+    try {
+      const response = await fetch('/api/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) return false;
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setRecords((prev) => prev.map((r) => r.assignedToUserId === userId ? {
+        ...r,
+        assignedToUserId: undefined,
+        salesPerson: 'Unassigned',
+        coordinatedBy: 'Unassigned',
+        updatedAt: new Date().toISOString(),
+      } : r));
+      addAuditLog('User Deleted', `Deleted user account for ${targetUser.name} (@${targetUser.username})`);
+      return true;
+    } catch (error) {
+      console.error('User deletion failed:', error);
+      return false;
     }
   };
 
@@ -836,302 +869,252 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   // --------------------------------------------------
   // Record mutations
   // --------------------------------------------------
-  const assignRecords = (
+  const assignRecords = async (
     recordIds: string[],
     targetUserId: string,
     targetUserName: string
-  ) => {
-    if (recordIds.length === 0) return;
-
+  ): Promise<boolean> => {
+    if (recordIds.length === 0) return false;
     const isUnassign = targetUserId === 'unassigned';
     const assignedName = isUnassign ? 'Unassigned' : targetUserName;
-    const assignedId = isUnassign ? undefined : targetUserId;
-    const now = new Date().toISOString();
+    const assignedId = isUnassign ? null : targetUserId;
 
-    setRecords((prev) =>
-      prev.map((r) =>
-        recordIds.includes(r.id)
-          ? {
-              ...r,
-              assignedToUserId: assignedId,
-              salesPerson: assignedName,
-              updatedAt: now,
-            }
-          : r
-      )
-    );
+    const outcomes = await Promise.all(recordIds.map(async (id) => {
+      try {
+        const response = await fetch(`/api/records/${id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ assignedToUserId: assignedId, salesPerson: assignedName }),
+        });
+        const body = await response.json().catch(() => null);
+        return { id, ok: response.ok && Boolean(body?.id), message: body?.error || body?.message };
+      } catch {
+        return { id, ok: false, message: 'Network error' };
+      }
+    }));
+    const succeeded = outcomes.filter((outcome) => outcome.ok).map((outcome) => outcome.id);
+    if (succeeded.length) {
+      setRecords((previous) => previous.map((record) => succeeded.includes(record.id)
+        ? { ...record, assignedToUserId: assignedId || undefined, salesPerson: assignedName, updatedAt: new Date().toISOString() }
+        : record));
+      addAuditLog(
+        isUnassign ? 'Batch Unassigned' : 'Batch Assigned',
+        `${isUnassign ? 'Unassigned' : 'Assigned'} ${succeeded.length} vehicle record(s) ${isUnassign ? '' : `to ${assignedName}`}.`,
+      );
+      clearSelection();
+    }
+    if (succeeded.length !== recordIds.length && typeof window !== 'undefined') {
+      window.alert(`${succeeded.length} of ${recordIds.length} records were assigned. The rest were rejected by the API or could not be reached.`);
+    }
+    return succeeded.length === recordIds.length;
+  };
 
-    recordIds.forEach((id) => {
-      fetch(`/api/records/${id}`, {
+  const updateRecord = async (id: string, updates: Partial<TrackerRecord>): Promise<boolean> => {
+    const existingRec = records.find((record) => record.id === id);
+    if (!existingRec) return false;
+
+    const enrichedUpdates: Partial<TrackerRecord> = { ...updates };
+    const statusChanged = Boolean(updates.status && updates.status !== existingRec.status);
+    const timestamp = new Date().toISOString();
+    if (statusChanged) {
+      enrichedUpdates.statusChangedAt = timestamp;
+      enrichedUpdates.statusChangedBy = currentUser.username || currentUser.name;
+      enrichedUpdates.statusChangedByUserId = currentUser.id;
+    }
+
+    try {
+      const response = await fetch(`/api/records/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          assignedToUserId: assignedId || null,
-          salesPerson: assignedName,
-        }),
-      }).catch(() => {});
-    });
-
-    addAuditLog(
-      isUnassign ? 'Batch Unassigned' : 'Batch Assigned',
-      `Assigned ${recordIds.length} vehicle record(s) to ${assignedName}.`
-    );
-    clearSelection();
-  };
-
-  const updateRecord = (id: string, updates: Partial<TrackerRecord>) => {
-    const existingRec = records.find((r) => r.id === id);
-    const enrichedUpdates: Partial<TrackerRecord> = { ...updates };
-
-    if (
-      updates.status &&
-      (!existingRec || updates.status !== existingRec.status)
-    ) {
-      const now = new Date().toISOString();
-      const actorUsername = currentUser.username || currentUser.name;
-      const actorUserId = currentUser.id;
-
-      if (!enrichedUpdates.statusChangedAt) {
-        enrichedUpdates.statusChangedAt = now;
-      }
-      if (!enrichedUpdates.statusChangedBy) {
-        enrichedUpdates.statusChangedBy = actorUsername;
-      }
-      enrichedUpdates.statusChangedByUserId = actorUserId;
-
-      setLastStatusChange({
-        recordId: id,
-        regNo: existingRec?.regNo || id,
-        customerName: existingRec?.customerName || '',
-        previousStatus: existingRec?.status,
-        newStatus: updates.status,
-        changedByUserId: actorUserId,
-        changedByUsername: actorUsername,
-        changedByName: currentUser.name,
-        timestamp: enrichedUpdates.statusChangedAt,
+        body: JSON.stringify(enrichedUpdates),
       });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.id) {
+        const message = result?.error || result?.message || 'The server did not save this record.';
+        console.error('updateRecord failed:', message);
+        if (typeof window !== 'undefined') window.alert(message);
+        return false;
+      }
 
-      addAuditLog(
-        'Status Changed',
-        `Status changed to "${updates.status}" for Record ID: ${id} (${
-          existingRec?.regNo || ''
-        }) by User ID: ${actorUserId} (@${actorUsername})`,
-        existingRec?.regNo
-      );
-    }
+      const savedRecord = normalizeRecordFromApi(result);
+      setRecords((previous) => previous.map((record) => record.id === id ? savedRecord : record));
 
-    setRecords((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              ...enrichedUpdates,
-              updatedAt: new Date().toISOString(),
-            }
-          : r
-      )
-    );
-
-    fetch(`/api/records/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(enrichedUpdates),
-    }).catch((err) => console.error('updateRecord failed', err));
-
-    if (
-      !updates.status ||
-      (existingRec && updates.status === existingRec.status)
-    ) {
-      const rec = records.find((r) => r.id === id);
-      addAuditLog(
-        'Record Updated',
-        `Updated fields on ${rec?.regNo || id}`,
-        rec?.regNo
-      );
+      if (statusChanged) {
+        setLastStatusChange({
+          recordId: id,
+          regNo: savedRecord.regNo,
+          customerName: savedRecord.customerName,
+          previousStatus: existingRec.status,
+          newStatus: savedRecord.status,
+          changedByUserId: currentUser.id,
+          changedByUsername: currentUser.username || currentUser.name,
+          changedByName: currentUser.name,
+          timestamp: savedRecord.statusChangedAt || timestamp,
+        });
+        addAuditLog(
+          'Status Changed',
+          `Status changed to "${savedRecord.status}" for ${savedRecord.regNo} by ${currentUser.name}.`,
+          savedRecord.regNo,
+        );
+      } else {
+        addAuditLog('Record Updated', `Updated fields on ${savedRecord.regNo}`, savedRecord.regNo);
+      }
+      return true;
+    } catch (error) {
+      console.error('updateRecord request failed:', error);
+      if (typeof window !== 'undefined') window.alert('Could not reach the server. Your changes were not saved.');
+      return false;
     }
   };
 
-  const addRecord = (
+  const addRecord = async (
     recordData: Omit<TrackerRecord, 'id' | 'createdAt' | 'updatedAt'>
-  ) => {
-    const tempId = `rec-${Date.now()}`;
+  ): Promise<boolean> => {
     const timestamp = new Date().toISOString();
     const actorUsername = currentUser.username || currentUser.name;
     const actorUserId = currentUser.id;
+    const actorName = currentUser.name;
 
-    const salesPerson =
-      currentUser.role === 'user' ? currentUser.name : recordData.salesPerson;
-    const assignedToUserId =
-      currentUser.role === 'user' ? currentUser.id : recordData.assignedToUserId;
-
-    const newRecord: TrackerRecord = {
+    const payload: Omit<TrackerRecord, 'id' | 'createdAt' | 'updatedAt'> = {
       ...recordData,
-      id: tempId,
-      salesPerson: salesPerson || 'Unassigned',
-      assignedToUserId,
+      salesPerson: currentUser.role === 'user' ? currentUser.name : recordData.salesPerson || 'Unassigned',
+      assignedToUserId: currentUser.role === 'user' ? currentUser.id : recordData.assignedToUserId,
       statusChangedAt: recordData.statusChangedAt || timestamp,
-      statusChangedBy: recordData.statusChangedBy || actorUsername,
+      statusChangedBy: actorUsername,
       statusChangedByUserId: actorUserId,
-      createdAt: timestamp,
-      updatedAt: timestamp,
     };
 
-    setRecords((prev) => [newRecord, ...prev]);
-
-    if (newRecord.status) {
-      setLastStatusChange({
-        recordId: tempId,
-        regNo: newRecord.regNo,
-        customerName: newRecord.customerName,
-        newStatus: newRecord.status,
-        changedByUserId: actorUserId,
-        changedByUsername: actorUsername,
-        changedByName: currentUser.name,
-        timestamp: newRecord.statusChangedAt || timestamp,
-      });
-    }
-
-    fetch('/api/records', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(newRecord),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          console.error('Failed to save record:', err);
-          return null;
-        }
-        return res.json();
-      })
-      .then((saved) => {
-        if (saved?.id) {
-          setRecords((prev) =>
-            prev.map((r) =>
-              r.id === tempId ? normalizeRecordFromApi(saved) : r
-            )
-          );
-        }
-      })
-      .catch((e) => console.error(e));
-
-    addAuditLog(
-      'New Record Added',
-      `Added vehicle ${newRecord.regNo} (${newRecord.customerName}) with status "${newRecord.status}"`,
-      newRecord.regNo
-    );
-  };
-
-  const deleteRecords = (recordIds: string[]) => {
-    if (recordIds.length === 0) return;
-
-    setRecords((prev) => prev.filter((r) => !recordIds.includes(r.id)));
-    setSelectedRecordIds((prev) =>
-      prev.filter((id) => !recordIds.includes(id))
-    );
-
-    recordIds.forEach((id) => {
-      fetch(`/api/records/${id}`, {
-        method: 'DELETE',
+    try {
+      const response = await fetch('/api/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-      }).catch(() => {});
-    });
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.id) {
+        const message = result?.error || result?.message || 'The vehicle record was not saved.';
+        console.error('addRecord failed:', message);
+        if (typeof window !== 'undefined') window.alert(message);
+        return false;
+      }
 
-    addAuditLog('Records Deleted', `Deleted ${recordIds.length} record(s)`);
+      const savedRecord = normalizeRecordFromApi(result);
+      setRecords((previous) => [savedRecord, ...previous.filter((record) => record.id !== savedRecord.id)]);
+      if (savedRecord.status) {
+        setLastStatusChange({
+          recordId: savedRecord.id,
+          regNo: savedRecord.regNo,
+          customerName: savedRecord.customerName,
+          newStatus: savedRecord.status,
+          changedByUserId: actorUserId,
+          changedByUsername: actorUsername,
+          changedByName: actorName,
+          timestamp: savedRecord.statusChangedAt || timestamp,
+        });
+      }
+      addAuditLog(
+        'New Record Added',
+        `Added vehicle ${savedRecord.regNo} (${savedRecord.customerName}) with status "${savedRecord.status}"`,
+        savedRecord.regNo,
+      );
+      return true;
+    } catch (error) {
+      console.error('addRecord request failed:', error);
+      if (typeof window !== 'undefined') window.alert('Could not reach the server. The new record was not saved.');
+      return false;
+    }
   };
 
-  const batchUpdateStatus = (
+  const deleteRecords = async (recordIds: string[]): Promise<boolean> => {
+    if (recordIds.length === 0) return false;
+    const outcomes = await Promise.all(recordIds.map(async (id) => {
+      try {
+        const response = await fetch(`/api/records/${id}`, { method: 'DELETE', credentials: 'include' });
+        const body = await response.json().catch(() => null);
+        return { id, ok: response.ok && body?.success === true, message: body?.error };
+      } catch {
+        return { id, ok: false, message: 'Network error' };
+      }
+    }));
+    const succeeded = outcomes.filter((outcome) => outcome.ok).map((outcome) => outcome.id);
+    if (succeeded.length) {
+      setRecords((previous) => previous.filter((record) => !succeeded.includes(record.id)));
+      setSelectedRecordIds((previous) => previous.filter((id) => !succeeded.includes(id)));
+      addAuditLog('Records Deleted', `Deleted ${succeeded.length} record(s)`);
+    }
+    if (succeeded.length !== recordIds.length && typeof window !== 'undefined') {
+      window.alert(`${succeeded.length} of ${recordIds.length} records were deleted. Remaining records were not removed.`);
+    }
+    return succeeded.length === recordIds.length;
+  };
+
+  const batchUpdateStatus = async (
     recordIds: string[],
     status: TrackerRecord['status']
-  ) => {
-    if (recordIds.length === 0) return;
-    const now = new Date().toISOString();
-    const actorUsername = currentUser.username || currentUser.name;
-    const actorUserId = currentUser.id;
-
-    setRecords((prev) =>
-      prev.map((r) =>
-        recordIds.includes(r.id)
-          ? {
-              ...r,
-              status,
-              statusChangedAt: now,
-              statusChangedBy: actorUsername,
-              statusChangedByUserId: actorUserId,
-              updatedAt: now,
-            }
-          : r
-      )
-    );
-
-    recordIds.forEach((id) => {
-      fetch(`/api/records/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          status,
-          statusChangedAt: now,
-          statusChangedBy: actorUsername,
-          statusChangedByUserId: actorUserId,
-        }),
-      }).catch(() => {});
-    });
-
-    const affected = records.filter((r) => recordIds.includes(r.id));
-    const first = affected[0];
-    setLastStatusChange({
-      recordId: recordIds.join(', '),
-      regNo: first
-        ? `${first.regNo}${
-            recordIds.length > 1 ? ` (+${recordIds.length - 1} more)` : ''
-          }`
-        : recordIds.join(', '),
-      customerName: first?.customerName || '',
-      newStatus: status,
-      changedByUserId: actorUserId,
-      changedByUsername: actorUsername,
-      changedByName: currentUser.name,
-      timestamp: now,
-    });
-
-    addAuditLog(
-      'Batch Status Updated',
-      `Updated status to "${status}" for ${recordIds.length} record(s)`
-    );
+  ): Promise<boolean> => {
+    if (recordIds.length === 0) return false;
+    const outcomes = await Promise.all(recordIds.map(async (id) => {
+      try {
+        const response = await fetch(`/api/records/${id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ status }),
+        });
+        const result = await response.json().catch(() => null);
+        return { id, ok: response.ok && Boolean(result?.id), result };
+      } catch {
+        return { id, ok: false, result: null };
+      }
+    }));
+    const succeeded = outcomes.filter((outcome) => outcome.ok);
+    if (succeeded.length) {
+      const savedById = new Map<string, TrackerRecord>(succeeded.map((item) => [item.id, normalizeRecordFromApi(item.result)] as [string, TrackerRecord]));
+      setRecords((previous) => previous.map((record) => savedById.get(record.id) || record));
+      const first = savedById.values().next().value as TrackerRecord | undefined;
+      if (first) setLastStatusChange({
+        recordId: first.id, regNo: first.regNo, customerName: first.customerName,
+        previousStatus: records.find((record) => record.id === first.id)?.status,
+        newStatus: first.status, changedByUserId: currentUser.id,
+        changedByUsername: currentUser.username || currentUser.name,
+        changedByName: currentUser.name, timestamp: first.statusChangedAt || new Date().toISOString(),
+      });
+      addAuditLog('Batch Status Updated', `Updated status to "${status}" for ${succeeded.length} record(s)`);
+      clearSelection();
+    }
+    if (succeeded.length !== recordIds.length && typeof window !== 'undefined') {
+      window.alert(`Status updated for ${succeeded.length} of ${recordIds.length} records. Check the selected agent permissions for the others.`);
+    }
+    return succeeded.length === recordIds.length;
   };
 
-  const batchUpdateTrackerStatus = (
+  const batchUpdateTrackerStatus = async (
     recordIds: string[],
     trackerStatus: TrackerRecord['trackerStatus']
-  ) => {
-    if (recordIds.length === 0) return;
-    const now = new Date().toISOString();
-
-    setRecords((prev) =>
-      prev.map((r) =>
-        recordIds.includes(r.id)
-          ? { ...r, trackerStatus, updatedAt: now }
-          : r
-      )
-    );
-
-    recordIds.forEach((id) => {
-      fetch(`/api/records/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ trackerStatus }),
-      }).catch(() => {});
-    });
-
-    addAuditLog(
-      'Batch Tracker Status Updated',
-      `Updated tracker status to "${trackerStatus}" for ${recordIds.length} record(s)`
-    );
+  ): Promise<boolean> => {
+    if (recordIds.length === 0) return false;
+    const outcomes = await Promise.all(recordIds.map(async (id) => {
+      try {
+        const response = await fetch(`/api/records/${id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ trackerStatus }),
+        });
+        const result = await response.json().catch(() => null);
+        return { id, ok: response.ok && Boolean(result?.id), result };
+      } catch {
+        return { id, ok: false, result: null };
+      }
+    }));
+    const succeeded = outcomes.filter((outcome) => outcome.ok);
+    if (succeeded.length) {
+      const savedById = new Map<string, TrackerRecord>(succeeded.map((item) => [item.id, normalizeRecordFromApi(item.result)] as [string, TrackerRecord]));
+      setRecords((previous) => previous.map((record) => savedById.get(record.id) || record));
+      addAuditLog('Batch Tracker Status Updated', `Updated tracker status to "${trackerStatus}" for ${succeeded.length} record(s)`);
+      clearSelection();
+    }
+    if (succeeded.length !== recordIds.length && typeof window !== 'undefined') {
+      window.alert(`Tracker status updated for ${succeeded.length} of ${recordIds.length} records. Check the selected agent permissions for the others.`);
+    }
+    return succeeded.length === recordIds.length;
   };
 
   const importRecords = (
@@ -1355,54 +1338,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [currentUser.id, getUserEffectivePermissions]
   );
 
-  const updateAgentPermissions = (
+  const updateAgentPermissions = async (
     updates: Partial<AgentPermissions>,
     targetUserId?: string
-  ) => {
+  ): Promise<boolean> => {
     if (targetUserId && targetUserId !== 'global') {
-      setUsers((prev) =>
-        prev.map((u) => {
-          if (u.id === targetUserId) {
-            const currentCustom = u.customPermissions || {};
-            return {
-              ...u,
-              customPermissions: { ...currentCustom, ...updates },
-            };
-          }
-          return u;
-        })
-      );
-      const targetUser = users.find((u) => u.id === targetUserId);
-      addAuditLog(
-        'Agent Permissions Updated',
-        `Admin modified custom edit permissions for agent ${
-          targetUser?.name || targetUserId
-        }.`
-      );
-    } else {
-      setAgentPermissions((prev) => ({ ...prev, ...updates }));
-      addAuditLog(
-        'Global Permissions Updated',
-        'Admin modified global edit permissions for all sales agents.'
-      );
+      const newPermissions = { ...getUserEffectivePermissions(targetUserId), ...updates };
+      try {
+        const response = await fetch('/api/users', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ userId: targetUserId, customPermissions: newPermissions }),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) return false;
+        const savedPermissions = result.customPermissions || newPermissions;
+        setUsers((prev) => prev.map((u) => u.id === targetUserId ? { ...u, customPermissions: savedPermissions } : u));
+        const targetUser = users.find((u) => u.id === targetUserId);
+        addAuditLog('Agent Permissions Updated', `Admin modified custom edit permissions for agent ${targetUser?.name || targetUserId}.`);
+        return true;
+      } catch (error) {
+        console.error('Saving agent permissions failed:', error);
+        return false;
+      }
+    }
+
+    const nextPermissions = { ...agentPermissions, ...updates };
+    try {
+      const response = await fetch('/api/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ permissions: nextPermissions }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) return false;
+      setAgentPermissions(result.permissions as AgentPermissions);
+      addAuditLog('Global Permissions Updated', 'Admin modified global edit permissions for all agents who inherit the global policy.');
+      return true;
+    } catch (error) {
+      console.error('Saving global permissions failed:', error);
+      return false;
     }
   };
 
-  const clearUserCustomPermissions = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === userId) {
-          const { customPermissions: _, ...rest } = u;
-          return rest;
-        }
-        return u;
-      })
-    );
-    const targetUser = users.find((u) => u.id === userId);
-    addAuditLog(
-      'Agent Permissions Reset',
-      `Reverted agent ${targetUser?.name || userId} to global policy.`
-    );
+  const clearUserCustomPermissions = async (userId: string): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ userId, clearCustomPermissions: true }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) return false;
+      setUsers((prev) => prev.map((u) => {
+        if (u.id !== userId) return u;
+        const { customPermissions: _custom, ...rest } = u;
+        return rest;
+      }));
+      const targetUser = users.find((u) => u.id === userId);
+      addAuditLog('Agent Permissions Reset', `Reverted agent ${targetUser?.name || userId} to global policy.`);
+      return true;
+    } catch (error) {
+      console.error('Clearing custom agent permissions failed:', error);
+      return false;
+    }
   };
 
   const getPresetPermissions = (preset: PermissionPreset): AgentPermissions => {
@@ -1480,32 +1476,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const resetAgentPermissionsToPreset = (
+  const resetAgentPermissionsToPreset = async (
     preset: PermissionPreset,
     targetUserId?: string
-  ) => {
+  ): Promise<boolean> => {
     const newPerms = getPresetPermissions(preset);
-    if (targetUserId && targetUserId !== 'global') {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === targetUserId
-            ? { ...u, customPermissions: newPerms }
-            : u
-        )
-      );
-      const targetUser = users.find((u) => u.id === targetUserId);
-      addAuditLog(
-        'Agent Preset Applied',
-        `Admin applied "${preset.toUpperCase()}" preset to agent ${
-          targetUser?.name || targetUserId
-        }.`
-      );
-    } else {
-      setAgentPermissions(newPerms);
-      addAuditLog(
-        'Global Permissions Preset Applied',
-        `Admin set global agent permissions to "${preset.toUpperCase()}" preset.`
-      );
+    try {
+      if (targetUserId && targetUserId !== 'global') {
+        const response = await fetch('/api/users', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ userId: targetUserId, customPermissions: newPerms }),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) return false;
+        setUsers((prev) => prev.map((u) => u.id === targetUserId
+          ? { ...u, customPermissions: result.customPermissions || newPerms }
+          : u));
+        const targetUser = users.find((u) => u.id === targetUserId);
+        addAuditLog('Agent Preset Applied', `Admin applied "${preset.toUpperCase()}" preset to agent ${targetUser?.name || targetUserId}.`);
+      } else {
+        const response = await fetch('/api/permissions', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ permissions: newPerms }),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) return false;
+        setAgentPermissions(result.permissions as AgentPermissions);
+        addAuditLog('Global Permissions Preset Applied', `Admin set global agent permissions to "${preset.toUpperCase()}" preset.`);
+      }
+      return true;
+    } catch (error) {
+      console.error('Saving agent permission preset failed:', error);
+      return false;
     }
   };
 

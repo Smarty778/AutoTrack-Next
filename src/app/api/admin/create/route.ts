@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
         phone,
         avatarColor,
         active,
-        customPermissions: { create: permissions },
+        customPermissions: { create: { ...permissions, isCustom: role === 'USER' && Boolean(body.permissions) } },
       },
       select: {
         id: true,
@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
         avatarColor: true,
         active: true,
         createdAt: true,
-        customPermissions: true,
+        customPermissions: { select: { isCustom: true, canEditStatus: true, canEditTrackerStatus: true, canEditRemarks: true, canEditDueDate: true, canEditContactInfo: true, canEditInsurance: true, canEditVehicleSpecs: true, canEditEngineChassis: true, canEditHardwareUnit: true, canEditTechnicianCity: true, canEditOrderNoDate: true, canCreateNewRecords: true, canDeleteRecords: true, canReassignSalesPerson: true } },
       },
     });
 
@@ -196,7 +196,12 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         message: `${role === 'ADMIN' ? 'Admin' : 'User'} account created successfully`,
-        user: created,
+        user: {
+          ...created,
+          customPermissions: created.customPermissions?.isCustom
+            ? Object.fromEntries(Object.entries(created.customPermissions).filter(([key]) => key !== 'isCustom'))
+            : null,
+        },
       },
       { status: 201 }
     );

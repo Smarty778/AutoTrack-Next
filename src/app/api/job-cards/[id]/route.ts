@@ -45,9 +45,11 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     if (auth.role !== 'ADMIN') {
       const record = await prisma.trackerRecord.findUnique({
         where: { id: jobCard.recordId },
-        select: { assignedToUserId: true },
+        select: { assignedToUserId: true, salesPerson: true },
       });
-      if (record?.assignedToUserId !== auth.id) {
+      const actor = await prisma.user.findUnique({ where: { id: auth.id }, select: { name: true } });
+      const ownerNames = [actor?.name, auth.username].filter(Boolean).map((value) => String(value).trim().toLowerCase());
+      if (record?.assignedToUserId !== auth.id && !ownerNames.includes(String(record?.salesPerson || '').trim().toLowerCase())) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
@@ -71,19 +73,20 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
     const existing = await prisma.jobCard.findUnique({
       where: { id },
-      include: { record: { select: { assignedToUserId: true, regNo: true } } },
+      include: { record: { select: { assignedToUserId: true, salesPerson: true, regNo: true } } },
     });
 
     if (!existing) {
       return NextResponse.json({ error: 'Job card not found' }, { status: 404 });
     }
 
-    // Non-admin access check
-    if (
-      auth.role !== 'ADMIN' &&
-      existing.record.assignedToUserId !== auth.id
-    ) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Non-admin access check. The salesperson-name fallback supports legacy rows that predate user-ID assignment.
+    if (auth.role !== 'ADMIN' && existing.record.assignedToUserId !== auth.id) {
+      const actor = await prisma.user.findUnique({ where: { id: auth.id }, select: { name: true } });
+      const ownerNames = [actor?.name, auth.username].filter(Boolean).map((value) => String(value).trim().toLowerCase());
+      if (!ownerNames.includes(String(existing.record.salesPerson || '').trim().toLowerCase())) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     // Sanitize updatable fields

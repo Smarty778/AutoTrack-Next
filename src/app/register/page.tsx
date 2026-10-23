@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { FullScreenLoader } from '@/components/FullScreenLoader';
+import { CitySelectField } from '@/components/CitySelectField';
 import { ShieldCheck, UserPlus, AlertCircle } from 'lucide-react';
 
 const inputClass =
@@ -137,12 +138,11 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className={labelClass}>City</label>
-              <input
-                type="text"
+              <CitySelectField
                 value={form.city}
-                onChange={update('city')}
-                placeholder="Optional"
-                className={inputClass}
+                onChange={(city) => setForm((prev) => ({ ...prev, city }))}
+                placeholder="Select city (optional)"
+                className="bg-white"
               />
             </div>
           </div>

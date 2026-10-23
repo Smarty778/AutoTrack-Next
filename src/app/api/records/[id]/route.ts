@@ -6,6 +6,7 @@ import {
   toPrismaStatus,
   toPrismaTrackerStatus,
 } from '@/lib/record-mappers';
+import { getEffectiveAgentPermissions, isFieldChangeAllowed } from '@/lib/permissions';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -17,7 +18,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
   try {
     const { id } = await params;
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'A valid JSON object is required' }, { status: 400 });
+    }
 
     // Strip UI-only / non-schema fields
     delete body.id;
@@ -35,12 +39,51 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
     }
 
+    if (auth.role !== 'ADMIN') {
+      const actor = await prisma.user.findUnique({ where: { id: auth.id }, select: { name: true } });
+      const allowedNames = [actor?.name, auth.username].filter(Boolean).map((value) => String(value).trim().toLowerCase());
+      const assignedToAgent = existingRecord.assignedToUserId === auth.id
+        || allowedNames.includes(String(existingRecord.salesPerson || '').trim().toLowerCase());
+      if (!assignedToAgent) {
+        return NextResponse.json({ error: 'You can only edit records assigned to your account' }, { status: 403 });
+      }
+    }
+
+    // Enforce field-level permissions at the API boundary too; UI locks alone are not security.
+    if (auth.role !== 'ADMIN') {
+      const permissions = await getEffectiveAgentPermissions(auth.id);
+      const fieldsToCheck = [
+        'status', 'trackerStatus', 'remarks', 'dueDate', 'customerName', 'contact1',
+        'contactPerson', 'cnicNo', 'insurance', 'insStatus', 'regNo', 'make', 'model',
+        'year', 'color', 'engine', 'chassis', 'unit', 'technicianName', 'instCity',
+        'showroom', 'orderNo', 'date', 'dateOfInstallation', 'coordinatedBy',
+        'salesPerson', 'assignedToUserId',
+      ];
+      const before = existingRecord as unknown as Record<string, unknown>;
+      const after = { ...(body as Record<string, unknown>) };
+      if (after.status !== undefined) after.status = toPrismaStatus(String(after.status));
+      if (after.trackerStatus !== undefined) after.trackerStatus = toPrismaTrackerStatus(String(after.trackerStatus));
+      const denied = fieldsToCheck.find((field) => !isFieldChangeAllowed(field, before, after, permissions));
+      if (denied) {
+        return NextResponse.json({ error: `You do not have permission to edit ${denied}` }, { status: 403 });
+      }
+      // Server owns status-change metadata; never trust client-supplied audit values.
+      delete body.statusChangedAt;
+      delete body.statusChangedBy;
+      delete body.statusChangedByUserId;
+    }
+
     // Detect real status change (UI string → Prisma enum)
     const incomingStatus = body.status
       ? toPrismaStatus(body.status)
       : existingRecord.status;
 
     const isStatusChanged = incomingStatus !== existingRecord.status;
+
+    // Status-change audit metadata is always generated server-side.
+    delete body.statusChangedAt;
+    delete body.statusChangedBy;
+    delete body.statusChangedByUserId;
 
     // Build a clean Prisma-compatible update object
     const prismaUpdates = sanitizeRecordInput({
@@ -122,11 +165,8 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const auth = verifyAuth(req);
-  if (!auth || auth.role !== 'ADMIN') {
-    return NextResponse.json(
-      { error: 'Forbidden: Admin access required' },
-      { status: 403 }
-    );
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -138,6 +178,16 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
 
     if (!record) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+    }
+
+    if (auth.role !== 'ADMIN') {
+      const permissions = await getEffectiveAgentPermissions(auth.id);
+      if (!permissions.canDeleteRecords) {
+        return NextResponse.json({ error: 'Your account is not allowed to delete vehicle records' }, { status: 403 });
+      }
+      if (record.assignedToUserId !== auth.id) {
+        return NextResponse.json({ error: 'You can delete only records assigned to your account' }, { status: 403 });
+      }
     }
 
     await prisma.$transaction([

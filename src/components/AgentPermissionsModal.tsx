@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { AgentPermissions, PermissionPreset } from '../types';
 import { 
@@ -13,6 +13,21 @@ import {
   EyeOff,
   CheckCircle2
 } from 'lucide-react';
+
+
+const PERMISSION_PRESET_VALUES: Record<PermissionPreset, AgentPermissions> = {
+  readonly: { canEditStatus:false, canEditTrackerStatus:false, canEditRemarks:false, canEditDueDate:false, canEditContactInfo:false, canEditInsurance:false, canEditVehicleSpecs:false, canEditEngineChassis:false, canEditHardwareUnit:false, canEditTechnicianCity:false, canEditOrderNoDate:false, canCreateNewRecords:false, canDeleteRecords:false, canReassignSalesPerson:false },
+  strict: { canEditStatus:true, canEditTrackerStatus:false, canEditRemarks:true, canEditDueDate:true, canEditContactInfo:false, canEditInsurance:false, canEditVehicleSpecs:false, canEditEngineChassis:false, canEditHardwareUnit:false, canEditTechnicianCity:false, canEditOrderNoDate:false, canCreateNewRecords:false, canDeleteRecords:false, canReassignSalesPerson:false },
+  standard: { canEditStatus:true, canEditTrackerStatus:true, canEditRemarks:true, canEditDueDate:true, canEditContactInfo:true, canEditInsurance:true, canEditVehicleSpecs:false, canEditEngineChassis:false, canEditHardwareUnit:false, canEditTechnicianCity:false, canEditOrderNoDate:false, canCreateNewRecords:true, canDeleteRecords:false, canReassignSalesPerson:false },
+  full: { canEditStatus:true, canEditTrackerStatus:true, canEditRemarks:true, canEditDueDate:true, canEditContactInfo:true, canEditInsurance:true, canEditVehicleSpecs:true, canEditEngineChassis:true, canEditHardwareUnit:true, canEditTechnicianCity:true, canEditOrderNoDate:true, canCreateNewRecords:true, canDeleteRecords:false, canReassignSalesPerson:false },
+};
+const policyIsActive = (actual: AgentPermissions, preset: PermissionPreset) =>
+  Object.keys(PERMISSION_PRESET_VALUES[preset]).every((key) => actual[key as keyof AgentPermissions] === PERMISSION_PRESET_VALUES[preset][key as keyof AgentPermissions]);
+const presetClass = (actual: AgentPermissions, preset: PermissionPreset) => {
+  const active = policyIsActive(actual, preset);
+  const activeStyle = preset === 'readonly' ? 'bg-slate-800 text-white border-slate-800' : preset === 'strict' ? 'bg-amber-100 text-amber-900 border-amber-300' : preset === 'standard' ? 'bg-blue-100 text-blue-900 border-blue-400' : 'bg-emerald-100 text-emerald-900 border-emerald-400';
+  return `px-2.5 py-1.5 border rounded-md text-[11px] shadow-2xs cursor-pointer flex items-center justify-center gap-1 min-h-[32px] font-semibold transition-colors ${active ? activeStyle : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'}`;
+};
 
 interface AgentPermissionsModalProps {
   isOpen: boolean;
@@ -37,6 +52,8 @@ export const AgentPermissionsModal: React.FC<AgentPermissionsModalProps> = ({
   const [selectedTarget, setSelectedTarget] = useState<string>(initialSelectedUserId || 'global');
   const [justSavedMessage, setJustSavedMessage] = useState<string | null>(null);
 
+  useEffect(() => { if (isOpen) setSelectedTarget(initialSelectedUserId || 'global'); }, [isOpen, initialSelectedUserId]);
+
   if (!isOpen) return null;
 
   const salesUsers = users.filter(u => u.role === 'user');
@@ -49,29 +66,25 @@ export const AgentPermissionsModal: React.FC<AgentPermissionsModalProps> = ({
     ? globalAgentPermissions
     : getUserEffectivePermissions(selectedTarget);
 
-  const toggle = (key: keyof AgentPermissions) => {
+  const toggle = async (key: keyof AgentPermissions) => {
     const newValue = !activePermissions[key];
-    if (isGlobal) {
-      updateAgentPermissions({ [key]: newValue });
-    } else {
-      updateAgentPermissions({ [key]: newValue }, selectedTarget);
-    }
-    showSavedFeedback();
+    const saved = isGlobal
+      ? await updateAgentPermissions({ [key]: newValue })
+      : await updateAgentPermissions({ [key]: newValue }, selectedTarget);
+    showSavedFeedback(saved ? 'Changes saved' : 'Save failed — check server/database');
   };
 
-  const handleApplyPreset = (preset: PermissionPreset) => {
-    if (isGlobal) {
-      resetAgentPermissionsToPreset(preset);
-    } else {
-      resetAgentPermissionsToPreset(preset, selectedTarget);
-    }
-    showSavedFeedback(`Applied ${preset.toUpperCase()} preset`);
+  const handleApplyPreset = async (preset: PermissionPreset) => {
+    const saved = isGlobal
+      ? await resetAgentPermissionsToPreset(preset)
+      : await resetAgentPermissionsToPreset(preset, selectedTarget);
+    showSavedFeedback(saved ? `Applied ${preset.toUpperCase()} preset` : 'Preset was not saved');
   };
 
-  const handleRevertToGlobal = () => {
+  const handleRevertToGlobal = async () => {
     if (!isGlobal) {
-      clearUserCustomPermissions(selectedTarget);
-      showSavedFeedback(`Reverted to global policy`);
+      const saved = await clearUserCustomPermissions(selectedTarget);
+      showSavedFeedback(saved ? 'Reverted to global policy' : 'Could not revert policy');
     }
   };
 
@@ -196,7 +209,7 @@ export const AgentPermissionsModal: React.FC<AgentPermissionsModalProps> = ({
 
           <div className="flex items-center gap-2">
             {justSavedMessage && (
-              <span className="text-[10px] sm:text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 shrink-0">
+              <span className={`text-[10px] sm:text-[11px] ${justSavedMessage.toLowerCase().includes('fail') || justSavedMessage.toLowerCase().includes('could not') || justSavedMessage.toLowerCase().includes('not saved') ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'} border px-2 py-0.5 rounded-full font-medium flex items-center gap-1 shrink-0`}>
                 <Check className="w-3 h-3" />
                 {justSavedMessage}
               </span>
@@ -263,7 +276,7 @@ export const AgentPermissionsModal: React.FC<AgentPermissionsModalProps> = ({
             <button
               type="button"
               onClick={() => handleApplyPreset('readonly')}
-              className="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md font-medium text-[11px] shadow-2xs cursor-pointer flex items-center justify-center gap-1 min-h-[32px]"
+              className={presetClass(activePermissions, 'readonly')}
               title="Agent cannot edit any fields. View only."
             >
               <EyeOff className="w-3 h-3 text-slate-500" />
@@ -273,7 +286,7 @@ export const AgentPermissionsModal: React.FC<AgentPermissionsModalProps> = ({
             <button
               type="button"
               onClick={() => handleApplyPreset('strict')}
-              className="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md font-medium text-[11px] shadow-2xs cursor-pointer flex items-center justify-center min-h-[32px]"
+              className={presetClass(activePermissions, 'strict')}
               title="Only Status, Due Date, and Remarks editable"
             >
               Strict
@@ -282,7 +295,7 @@ export const AgentPermissionsModal: React.FC<AgentPermissionsModalProps> = ({
             <button
               type="button"
               onClick={() => handleApplyPreset('standard')}
-              className="px-2.5 py-1.5 bg-blue-50 border border-blue-300 hover:bg-blue-100 text-blue-800 rounded-md font-semibold text-[11px] shadow-2xs cursor-pointer flex items-center justify-center gap-1 min-h-[32px]"
+              className={presetClass(activePermissions, 'standard')}
               title="Status + Tracker Health + Remarks + Contacts (Recommended)"
             >
               <CheckCircle2 className="w-3 h-3 text-blue-600" />
@@ -292,7 +305,7 @@ export const AgentPermissionsModal: React.FC<AgentPermissionsModalProps> = ({
             <button
               type="button"
               onClick={() => handleApplyPreset('full')}
-              className="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md font-medium text-[11px] shadow-2xs cursor-pointer flex items-center justify-center min-h-[32px]"
+              className={presetClass(activePermissions, 'full')}
               title="Allow agent to edit all vehicle specifications and hardware"
             >
               Full Edit
